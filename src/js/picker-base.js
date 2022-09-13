@@ -870,7 +870,7 @@ export function PickerBase() {
         }
 
         this.printDateAndTime(o.container, o.date);
-
+        console.log("EVENT-INFO", o.picker, o.btn, o);
         this.closePicker(o.picker, o.btn, 500);
     };
 
