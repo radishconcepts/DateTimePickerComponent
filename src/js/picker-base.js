@@ -1660,7 +1660,7 @@ export function PickerBase() {
         const DD = ("0" + d.getDate()).slice(-2);
         const HH = ("0" + d.getHours()).slice(-2);
         const MI = ("0" + d.getMinutes()).slice(-2);
-        return `${YYYY} -${MO} -${DD}T${HH}:${MI}: 00`;
+        return `${YYYY}-${MO}-${DD}T${HH}:${MI}:00`;
     }
 
     /**
