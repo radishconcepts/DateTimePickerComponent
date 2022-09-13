@@ -648,12 +648,13 @@ export function PickerBase() {
 
         const week_day_number = getWeekDayNo(date);
 
-        week_day_span.textContent = this.i18n[days_order[week_day_number]];
+        week_day_span.textContent =
+            this.i18n[days_order[week_day_number] + "_"];
         month_day.textContent = ("0" + date.getDate()).slice(-2);
         month_year_span.innerHTML = `<span data-i18n="${
             months_order[date.getMonth()]
-        }">${
-            this.i18n[months_order[date.getMonth()]]
+        }_">${
+            this.i18n[months_order[date.getMonth()] + "_"]
         }</span><br>${date.getFullYear()}`;
 
         // Displays time
