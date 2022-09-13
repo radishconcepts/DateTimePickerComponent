@@ -255,6 +255,19 @@ export function PickerBase() {
     };
 
     /**
+     * Opens the closed picker and removes the active state from the the corresponding button.
+     *
+     * @param {HTMLDivElement} picker The picker currently open
+     * @param {HTMLDivElement} btn The active button
+     * @param {int} [msec=0] Number of milliseconds after which the picker is closed
+     */
+    this.openPicker = function (btn, ms = 0) {
+        setTimeout(() => {
+            btn.click();
+        }, ms);
+    };
+
+    /**
      * @desc
      * Returns dates converted in milliseconds with hours and minutes set to 0.
      *
@@ -586,7 +599,6 @@ export function PickerBase() {
         const o = {};
         const t = e.target;
         o.text = t.textContent;
-        console.log("EVENT-TYPE", "start");
         const if_hour = o.text.indexOf(":") != -1 ? true : false;
 
         if (mode == "start") {
@@ -594,25 +606,21 @@ export function PickerBase() {
             o.container = this.start_container;
             o.btn = !if_hour ? this.start_date_btn : this.start_time_btn;
             o.picker = this.start_picker;
-            console.log("EVENT-TYPE", "1");
         } else {
             o.date = this.end_date;
             o.container = this.end_container;
             o.btn = !if_hour ? this.end_date_btn : this.end_time_btn;
             o.picker = this.end_picker;
-            console.log("EVENT-TYPE", "2");
         }
 
         if (if_hour) {
             let arr = o.text.split(":");
             o.hour = arr[0];
             o.minute = arr[1];
-            // [ o.hour, o.minute ] = o.text.split(':');
-            console.log("EVENT-TYPE", "3");
+            // [ o.hour, o.minute ] = o.text.split(':')
         } else {
             o.prev_month = t.classList.contains("prev-month");
             o.next_month = t.classList.contains("next-month");
-            console.log("EVENT-TYPE", "4");
         }
 
         const substr = t.classList.contains("day")
@@ -624,14 +632,11 @@ export function PickerBase() {
             : "Hour";
         if (substr === "Month") {
             o.text = t.dataset.monthIndex;
-            console.log("EVENT-TYPE", "5");
         } else if (substr === "Year") {
             o.text = t.dataset.yearIndex;
-            console.log("EVENT-TYPE", "6");
         }
         const method = "select" + substr;
         this[method](o);
-        console.log("EVENT-METHOD", method);
     };
 
     /**
@@ -655,8 +660,9 @@ export function PickerBase() {
 
         const week_day_number = getWeekDayNo(date);
 
-        week_day_span.textContent =
-            this.i18n[days_order[week_day_number] + "_"];
+        week_day_span.textContent = "";
+        // week_day_span.textContent =
+        //     this.i18n[days_order[week_day_number] + "_"];
         month_day.textContent = ("0" + date.getDate()).slice(-2);
         month_year_span.innerHTML = `<span data-i18n="${
             months_order[date.getMonth()]
@@ -870,8 +876,12 @@ export function PickerBase() {
         }
 
         this.printDateAndTime(o.container, o.date);
-        console.log("EVENT-INFO", o.picker, o.btn, o);
-        this.closePicker(o.picker, o.btn, 500);
+        this.closePicker(o.picker, o.btn, 1);
+
+        if (o.btn.classList.contains("date")) {
+            const timeBtn = o.btn.parentElement.querySelector(".time");
+            this.openPicker(timeBtn, 1);
+        }
     };
 
     /**
@@ -900,7 +910,7 @@ export function PickerBase() {
 
         this.printDateAndTime(o.container, o.date);
 
-        this.closePicker(o.picker, o.btn, 500);
+        this.closePicker(o.picker, o.btn, 1);
     };
 
     /**
@@ -1125,7 +1135,7 @@ export function PickerBase() {
             this.checkDateTimeConsistency();
 
             this.printDateAndTime(container, day);
-            this.closePicker(picker, btn, 500);
+            this.closePicker(picker, btn, 1);
 
             button_confirm.disabled = true;
         };
@@ -1585,7 +1595,7 @@ export function PickerBase() {
         }
         const hours = [],
             gap = Math.round(60 / parseInt(this.round_to));
-        for (let h = 0; h < 24; h++) {
+        for (let h = 9; h < 22; h++) {
             for (let m = 0; m < gap; m++) {
                 let minute = m * parseInt(this.round_to);
                 hours.push(
@@ -1639,7 +1649,7 @@ export function PickerBase() {
             }
             html += "</tr>";
         }
-        console.log({ picker });
+        // console.log({ picker });
         picker.innerHTML = `<table class="time">
           <tr>
             <th colspan="${cells_by_row}">
