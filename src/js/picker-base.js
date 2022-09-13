@@ -68,6 +68,7 @@ if (!Element.prototype.matches) {
  * @property {string} date_output The date format returned to the value attribute of `input.date_output` (accepted values are short_ISO, full_ISO and timestamp)
  * @property {number} min_range The minimum range in milliseconds that must elapse between `start_date` and `end_date`
  * @property {number} round_to Minutes are rounded to the `round_to` value (if any) and his multiples
+ * @property {boolean} force_original_time_picker If is true and round_to is set then we force the use of the original time picker else ise the alternative one.
  */
 export function PickerBase() {
     this.i18n = {
@@ -310,7 +311,12 @@ export function PickerBase() {
 
         if (_curr_day == _dates._start_date) {
             class_name += "start-day ";
-            class_name += mode == "start" ? "active " : "inactive ";
+            class_name +=
+                mode == "start"
+                    ? class_name.indexOf("disabled") !== -1
+                        ? " "
+                        : "active "
+                    : "inactive ";
         }
 
         if (this.end_date) {
@@ -323,7 +329,12 @@ export function PickerBase() {
 
             if (_curr_day == _dates._end_date) {
                 class_name += " end-day ";
-                class_name += mode == "end" ? "active " : "inactive ";
+                class_name +=
+                    mode == "end"
+                        ? class_name.indexOf("disabled") !== -1
+                            ? " "
+                            : "active "
+                        : "inactive ";
             }
         }
 
@@ -461,7 +472,13 @@ export function PickerBase() {
             if (
                 el.matches(`#${div.parentElement.id}.datetime-container`) ||
                 el.classList.contains("prev-month") ||
-                el.classList.contains("next-month")
+                el.classList.contains("next-month") ||
+                el.classList.contains("prev-year") ||
+                el.classList.contains("next-year") ||
+                el.classList.contains("prev-year-range") ||
+                el.classList.contains("next-year-range") ||
+                el.classList.contains("month") ||
+                el.classList.contains("year")
             ) {
                 inside = true;
                 break;
@@ -531,7 +548,11 @@ export function PickerBase() {
             document.addEventListener(click, this.onClickOutside);
 
             let prefix = btn.classList.contains("date") ? "Date" : "Time";
-            if (prefix == "Time" && this.round_to) {
+            if (
+                prefix == "Time" &&
+                this.round_to &&
+                !this.force_original_time_picker
+            ) {
                 prefix = "Alternative" + prefix;
             }
             let method = "show" + prefix + "Picker";
@@ -564,7 +585,6 @@ export function PickerBase() {
     this.onSelectDayOrHour = (e) => {
         const o = {};
         const t = e.target;
-
         o.text = t.textContent;
 
         const if_hour = o.text.indexOf(":") != -1 ? true : false;
@@ -591,7 +611,18 @@ export function PickerBase() {
             o.next_month = t.classList.contains("next-month");
         }
 
-        const substr = t.classList.contains("day") ? "Day" : "Hour";
+        const substr = t.classList.contains("day")
+            ? "Day"
+            : t.classList.contains("month")
+            ? "Month"
+            : t.classList.contains("year")
+            ? "Year"
+            : "Hour";
+        if (substr === "Month") {
+            o.text = t.dataset.monthIndex;
+        } else if (substr === "Year") {
+            o.text = t.dataset.yearIndex;
+        }
         const method = "select" + substr;
         this[method](o);
     };
@@ -698,6 +729,76 @@ export function PickerBase() {
 
             date.setHours(h, m);
         });
+    };
+
+    /**
+     * @desc
+     * Selects the year clicked by the user and then closes the picker. It's used by
+     * {@link module:js/picker-base.PickerBase#onSelectDayOrHour|onSelectDayOrHour} method.
+     *
+     * @param {module:js/picker-base.PickerBaseNS.UserSelection} o Object with contextual info
+     *
+     * @see {@link module:js/picker-base.PickerBase#checkDateTimeConsistency|checkDateTimeConsistency}
+     * @see {@link module:js/picker-base.PickerBase#printDateAndTime|printDateAndTime}
+     * @see {@link module:js/picker-base.PickerBase#closePicker|closePicker}
+     */
+    this.selectYear = function (o) {
+        o.date.setFullYear(
+            parseInt(o.text),
+            o.date.getMonth(),
+            o.date.getDate()
+        );
+
+        this.checkDateTimeConsistency();
+
+        // Updates day classes after user selection
+        const coll = document.querySelectorAll("td.year.selectable");
+
+        for (let i = 0, n = coll.length; i < n; i++) {
+            let class_name = "year selectable";
+            if (parseInt(coll[i].dataset.yearIndex) === o.date.getFullYear()) {
+                class_name += " start-year active";
+            }
+            coll[i].className = class_name;
+        }
+
+        this.printDateAndTime(o.container, o.date);
+        this.showMonthPicker(o.picker, o.date);
+    };
+
+    /**
+     * @desc
+     * Selects the month clicked by the user and then closes the picker. It's used by
+     * {@link module:js/picker-base.PickerBase#onSelectDayOrHour|onSelectDayOrHour} method.
+     *
+     * @param {module:js/picker-base.PickerBaseNS.UserSelection} o Object with contextual info
+     *
+     * @see {@link module:js/picker-base.PickerBase#checkDateTimeConsistency|checkDateTimeConsistency}
+     * @see {@link module:js/picker-base.PickerBase#printDateAndTime|printDateAndTime}
+     * @see {@link module:js/picker-base.PickerBase#closePicker|closePicker}
+     */
+    this.selectMonth = function (o) {
+        o.date.setFullYear(
+            this.current_year.getFullYear(),
+            parseInt(o.text),
+            o.date.getDate()
+        );
+
+        this.checkDateTimeConsistency();
+
+        // Updates day classes after user selection
+        const coll = document.querySelectorAll("td.month.selectable");
+
+        for (let i = 0, n = coll.length; i < n; i++) {
+            let class_name = "month selectable";
+            if (parseInt(coll[i].dataset.monthIndex) === o.date.getMonth()) {
+                class_name += " start-month active";
+            }
+            coll[i].className = class_name;
+        }
+
+        this.printDateAndTime(o.container, o.date);
+        this.showDatePicker(o.picker, o.date);
     };
 
     /**
@@ -1027,6 +1128,218 @@ export function PickerBase() {
 
     /**
      * @desc
+     * Return the total number of days in the current date month.
+     *
+     * @param {Date} date Current date
+     * @returns {Number} Number of total days of the current date month
+     */
+    this.getTotalDaysOfMonth = function (date) {
+        const year = date.getFullYear();
+
+        // February length
+        const feb =
+            (year % 100 != 0 && year % 4 == 0) || year % 400 == 0 ? 29 : 28;
+
+        return [
+            "31",
+            feb,
+            "31",
+            "30",
+            "31",
+            "30",
+            "31",
+            "31",
+            "30",
+            "31",
+            "30",
+            "31",
+        ][date.getMonth()];
+    };
+
+    /**
+     * @desc
+     * Creates the years range selection inside the picker
+     *
+     * @param {HTMLDivElement} picker The picker that contains the calendar
+     * @param {Date} date Current date
+     */
+    this.showYearsPicker = function (picker, date) {
+        const year = date.getFullYear();
+        let html = "",
+            current_year_range = new Date(
+                Math.floor(year / 10) * 10 - 2,
+                date.getMonth(),
+                date.getDate()
+            ),
+            first_year_range = new Date(current_year_range);
+
+        html += `<tr>`;
+        for (let i = 0; i < 14; i++) {
+            const active_class =
+                current_year_range.getFullYear() <
+                    this.first_date.getFullYear() ||
+                this.last_date.getFullYear() < current_year_range.getFullYear()
+                    ? "disabled"
+                    : current_year_range.getFullYear() === year
+                    ? "selectable start-year active"
+                    : "selectable";
+            html += `<td class="year ${active_class}" data-year-index="${current_year_range.getFullYear()}">${current_year_range.getFullYear()}</td>`;
+            if (i === 6) {
+                html += `</tr><tr>`;
+            }
+            current_year_range = new Date(
+                current_year_range.getFullYear() + 1,
+                current_year_range.getMonth(),
+                current_year_range.getDate()
+            );
+        }
+        html += `</tr>`;
+
+        picker.innerHTML = `<table class="date">
+      <tr>
+        <th><a href="javascript:void(0);" class="prev-year-range">&laquo;</a></th>
+        <th colspan="5">
+          <span class="first-year-range">${Math.floor(year / 10) * 10}</span>
+          <span>-</span>
+          <span class="last-year-range">${Math.floor(year / 10) * 10 + 9}</span>
+        </th>
+        <th><a href="javascript:void(0);" class="next-year-range">&raquo;</a></th>
+      </tr>
+      ${html}
+    </table>`;
+
+        // Previous year range button
+        const prev_year_range_btn = picker.querySelector(".prev-year-range");
+        if (first_year_range > this.first_date) {
+            prev_year_range_btn.addEventListener("click", () =>
+                this.showYearsPicker(
+                    picker,
+                    new Date(
+                        date.getFullYear() - 10,
+                        date.getMonth(),
+                        date.getDate()
+                    )
+                )
+            );
+        } else {
+            prev_year_range_btn.classList.add("disabled");
+        }
+
+        // Next year range button
+        const next_year_range_btn = picker.querySelector(".next-year-range");
+        if (this.last_date > current_year_range) {
+            next_year_range_btn.addEventListener("click", () =>
+                this.showYearsPicker(
+                    picker,
+                    new Date(
+                        date.getFullYear() + 10,
+                        date.getMonth(),
+                        date.getDate()
+                    )
+                )
+            );
+        } else {
+            next_year_range_btn.classList.add("disabled");
+        }
+
+        this.addOnSelectEvent(picker);
+
+        // this.current_year = current_year;
+    };
+
+    /**
+     * @desc
+     * Creates the month selection inside the picker
+     *
+     * @param {HTMLDivElement} picker The picker that contains the calendar
+     * @param {Date} date Current date
+     */
+    this.showMonthPicker = function (picker, date) {
+        let html = "";
+        const month = date.getMonth(),
+            year = date.getFullYear(),
+            bottom_month = new Date(
+                this.first_date.getFullYear(),
+                this.first_date.getMonth(),
+                1,
+                0,
+                0,
+                0
+            ),
+            top_month = new Date(
+                this.last_date.getFullYear(),
+                this.last_date.getMonth(),
+                1,
+                0,
+                0,
+                0
+            ),
+            current_year = new Date(year, month, 1, 0, 0, 0),
+            prev_year = new Date(year - 1, bottom_month.getMonth(), 1, 0, 0, 0),
+            next_year = new Date(year + 1, top_month.getMonth(), 1, 0, 0, 0);
+
+        html += `<tr>`;
+        for (let i = 0; i < months_order.length; i++) {
+            const current_month = new Date(year, i, 1, 0, 0, 0);
+            let active_class =
+                current_month < bottom_month || top_month < current_month
+                    ? "disabled"
+                    : i === month
+                    ? "selectable start-month active"
+                    : "selectable";
+            html += `<td class="month ${active_class}" data-month-index="${i}" data-i18n="${
+                months_order[i]
+            }">${this.i18n[months_order[i]]}</td>`;
+            if (i === 5) {
+                html += `</tr><tr>`;
+            }
+        }
+        html += `</tr> `;
+
+        picker.innerHTML = `<table class="date">
+      <tr>
+        <th><a href="javascript:void(0);" class="prev-year">&laquo;</a></th>
+        <th colspan="4">
+          <span class="year">${year}</span>
+        </th>
+        <th><a href="javascript:void(0);" class="next-year">&raquo;</a></th>
+      </tr>
+      ${html}
+    </table>`;
+
+        // Previous month button
+        const prev_year_btn = picker.querySelector(".prev-year");
+        if (prev_year >= bottom_month) {
+            prev_year_btn.addEventListener("click", () =>
+                this.showMonthPicker(picker, prev_year)
+            );
+        } else {
+            prev_year_btn.classList.add("disabled");
+        }
+
+        // Next month button
+        const next_year_btn = picker.querySelector(".next-year");
+        if (top_month >= next_year) {
+            next_year_btn.addEventListener("click", () =>
+                this.showMonthPicker(picker, next_year)
+            );
+        } else {
+            next_year_btn.classList.add("disabled");
+        }
+
+        // Year expanded selector
+        const year_btn = picker.querySelector("span.year");
+        year_btn.addEventListener("click", () =>
+            this.showYearsPicker(picker, current_year)
+        );
+
+        this.addOnSelectEvent(picker);
+
+        this.current_year = current_year;
+    };
+
+    /**
+     * @desc
      * Creates the calendar of the current month inside the picker.
      *
      * @param {HTMLDivElement} picker The picker that contains the calendar
@@ -1039,9 +1352,31 @@ export function PickerBase() {
     this.showDatePicker = function (picker, date) {
         let class_name,
             html = "";
+        const month = date.getMonth(),
+            year = date.getFullYear(),
+            day = date.getDate();
 
-        const month = date.getMonth();
-        const year = date.getFullYear();
+        if (
+            year === this.first_date.getFullYear() &&
+            month === this.first_date.getMonth() &&
+            day < this.first_date.getDate()
+        ) {
+            date.setFullYear(year, month, this.first_date.getDate());
+            this.printDateAndTime(
+                mode === "start" ? this.start_container : this.end_container,
+                date
+            );
+        } else if (
+            year === this.last_date.getFullYear() &&
+            month === this.last_date.getMonth() &&
+            day > this.last_date.getDate()
+        ) {
+            date.setFullYear(year, month, this.last_date.getDate());
+            this.printDateAndTime(
+                mode === "start" ? this.start_container : this.end_container,
+                date
+            );
+        }
 
         // February length
         const feb =
@@ -1076,7 +1411,7 @@ export function PickerBase() {
         while (j > 0) {
             i = prev_month_total_days - (j - 1);
             class_name = this.getDayClassName(i, prev_month, _dates);
-            html += `<td class="prev-month ${class_name}">${i}</td>`;
+            html += `<td class="prev-month ${class_name}" > ${i}</td>`;
             j--;
         }
 
@@ -1090,7 +1425,7 @@ export function PickerBase() {
             }
 
             class_name = this.getDayClassName(i, current_month, _dates);
-            html += `<td class="${class_name}">${i}</td>`;
+            html += `<td class="${class_name}" > ${i}</td>`;
 
             week_day++;
             i++;
@@ -1099,7 +1434,7 @@ export function PickerBase() {
         // Displays the first days of the next month
         for (i = 1; week_day <= 6; week_day++, i++) {
             class_name = this.getDayClassName(i, next_month, _dates);
-            html += `<td class="next-month ${class_name}">${i}</td>`;
+            html += `<td class="next-month ${class_name}" > ${i}</td>`;
         }
 
         picker.innerHTML = `<table class="date">
@@ -1109,7 +1444,7 @@ export function PickerBase() {
           <span class="month" data-i18n="${months_order[month] + "_"}">${
             this.i18n[months_order[month] + "_"]
         }</span>
-          ${year}
+          <span class="year">${year}</span>
         </th>
         <th><a href="javascript:void(0);" class="next-month">&raquo;</a></th>
       </tr>
@@ -1162,6 +1497,18 @@ export function PickerBase() {
             next_month_btn.classList.add("disabled");
         }
 
+        // Month expanded selector
+        const month_btn = picker.querySelector("span.month");
+        month_btn.addEventListener("click", () =>
+            this.showMonthPicker(picker, date)
+        );
+
+        // Year expanded selector
+        const year_btn = picker.querySelector("span.year");
+        year_btn.addEventListener("click", () =>
+            this.showYearsPicker(picker, date)
+        );
+
         this.addOnSelectEvent(picker);
 
         this.current_month = current_month;
@@ -1171,100 +1518,130 @@ export function PickerBase() {
 
     /**
      * @desc
-     * Creates the table of hours inside the picker
+     * Create a collection with available hours calculated taking into account the round_to value
      *
-     * @param {HTMLDivElement} picker The picker that contains the table
-     * @param {Date} day Current day
-     *
-     * @see {@link module:js/picker-base.PickerBase~getWeekDayNo|getWeekDayNo}
-     * @see {@link module:js/picker-base.PickerBase#getHourClassName|getHourClassName}
-     * @see {@link module:js/picker-base.PickerBase#addOnSelectEvent|addOnSelectEvent}
+     * @returns {Array} a collection of the available hours taking into account the round_to value
      */
-    this.showTimePicker = function (picker, day) {
-        const hours = [
-            "00:00",
-            "00:30",
-            "01:00",
-            "01:30",
-            "02:00",
-            "02:30",
-            "03:00",
-            "03:30",
-            "04:00",
-            "04:30",
-            "05:00",
-            "05:30",
-            "06:00",
-            "06:30",
-            "07:00",
-            "07:30",
-            "08:00",
-            "08:30",
-            "09:00",
-            "09:30",
-            "10:00",
-            "10:30",
-            "11:00",
-            "11:30",
-            "12:00",
-            "12:30",
-            "13:00",
-            "13:30",
-            "14:00",
-            "14:30",
-            "15:00",
-            "15:30",
-            "16:00",
-            "16:30",
-            "17:00",
-            "17:30",
-            "18:00",
-            "18:30",
-            "19:00",
-            "19:30",
-            "20:00",
-            "20:30",
-            "21:00",
-            "21:30",
-            "22:00",
-            "22:30",
-            "23:00",
-            "23:30",
-        ];
+    this.getHours = function () {
+        if (!this.round_to) {
+            return [
+                "00:00",
+                "00:30",
+                "01:00",
+                "01:30",
+                "02:00",
+                "02:30",
+                "03:00",
+                "03:30",
+                "04:00",
+                "04:30",
+                "05:00",
+                "05:30",
+                "06:00",
+                "06:30",
+                "07:00",
+                "07:30",
+                "08:00",
+                "08:30",
+                "09:00",
+                "09:30",
+                "10:00",
+                "10:30",
+                "11:00",
+                "11:30",
+                "12:00",
+                "12:30",
+                "13:00",
+                "13:30",
+                "14:00",
+                "14:30",
+                "15:00",
+                "15:30",
+                "16:00",
+                "16:30",
+                "17:00",
+                "17:30",
+                "18:00",
+                "18:30",
+                "19:00",
+                "19:30",
+                "20:00",
+                "20:30",
+                "21:00",
+                "21:30",
+                "22:00",
+                "22:30",
+                "23:00",
+                "23:30",
+            ];
+        }
+        const hours = [],
+            gap = Math.round(60 / parseInt(this.round_to));
+        for (let h = 0; h < 24; h++) {
+            for (let m = 0; m < gap; m++) {
+                let minute = m * parseInt(this.round_to);
+                hours.push(
+                    `${h < 10 ? "0" + h : h}:${
+                        minute < 10 ? "0" + minute : minute
+                    }`
+                );
+            }
+        }
+        return hours;
+    };
 
+    /**
+   * @desc
+   * Creates the table of hours inside the picker
+   *
+   * @param {HTMLDivElement} picker The picker that contains the table
+   * @param {Date} day Current day
+    
+   * @see {@link module:js/picker-base.PickerBase#getHours|getHours}
+   * @see {@link module:js/picker-base.PickerBase~getWeekDayNo|getWeekDayNo}
+   * @see {@link module:js/picker-base.PickerBase#getHourClassName|getHourClassName}
+   * @see {@link module:js/picker-base.PickerBase#addOnSelectEvent|addOnSelectEvent}
+   */
+    this.showTimePicker = function (picker, day) {
+        const hours = this.getHours(),
+            cells_by_row = 6;
         let i = 0,
             html = "",
             class_name;
 
-        // Nine rows
-        for (let j = 1; j < 9; j++) {
+        for (
+            let row = 0;
+            row < Math.round(hours.length / cells_by_row);
+            row++
+        ) {
             html += "<tr>";
-
-            // Six columns
-            for (i = 1 * i; i < 6 * j; i++) {
-                if (hours[i]) {
+            for (
+                let cell = row * cells_by_row;
+                cell < (row + 1) * cells_by_row;
+                cell++
+            ) {
+                if (hours[cell]) {
                     class_name = "";
-                    class_name = this.getHourClassName(hours[i], day);
+                    class_name = this.getHourClassName(hours[cell], day);
 
-                    html += `<td class="${class_name}">${hours[i]}</td>`;
+                    html += `<td class="${class_name}"> ${hours[cell]}</td>`;
                 } else {
-                    html += `<td class="white-background disabled"></td>`;
+                    html += `<td class="hour white-background disabled"></td>`;
                 }
             }
-
             html += "</tr>";
         }
-
+        console.log({ picker });
         picker.innerHTML = `<table class="time">
-      <tr>
-        <th colspan="7">
-          ${this.i18n[days_order[getWeekDayNo(day)] + "_"]}
-          ${day.getDate()}
-          <span class="month" data-i18n="${
-              months_order[day.getMonth()] + "_"
-          }">${this.i18n[months_order[day.getMonth()] + "_"]}</span>
-        </th>
-      </tr>
+          <tr>
+            <th colspan="${cells_by_row}">
+              ${this.i18n[days_order[getWeekDayNo(day)] + "_"]}
+              ${day.getDate()}
+              <span class="month" data-i18n="${
+                  months_order[day.getMonth()] + "_"
+              }">${this.i18n[months_order[day.getMonth()] + "_"]}</span>
+            </th>
+          </tr>
       ${html}
     </table>`;
 
@@ -1283,7 +1660,7 @@ export function PickerBase() {
         const DD = ("0" + d.getDate()).slice(-2);
         const HH = ("0" + d.getHours()).slice(-2);
         const MI = ("0" + d.getMinutes()).slice(-2);
-        return `${YYYY}-${MO}-${DD}T${HH}:${MI}:00`;
+        return `${YYYY} -${MO} -${DD}T${HH}:${MI}: 00`;
     }
 
     /**

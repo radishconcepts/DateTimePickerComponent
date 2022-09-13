@@ -116,12 +116,16 @@ div.picker {
 
     table th span.month {
         font-weight: bold;
+        cursor: pointer;
+    }
+    table th span.year {
+        cursor: pointer;
     }
 
     table th,
     table td {
         border-bottom: 1px solid #ddd;
-        padding: 10px 2px;
+        padding: 8px 2px;
         width: 14.285%;
         text-align: center;
         vertical-align: middle;
@@ -145,13 +149,17 @@ div.picker {
     }
 
     table td.start-day,
+    table td.start-month,
+    table td.start-year,
     table td.end-day,
     table td.time-selected {
         background-repeat: no-repeat;
         font-weight: bold;
     }
 
-    table td.start-day {
+    table td.start-day,
+    table td.start-month,
+    table td.start-year {
         background-image: url($arrow_start);
         background-position: left center;
     }

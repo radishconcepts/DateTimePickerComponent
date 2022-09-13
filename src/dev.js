@@ -21,7 +21,7 @@ new DatePicker("select_date_2", {
 });
 
 new DatePicker("select_date_3", {
-    first_date: "2030-01-02",
+    first_date: "2030-01-04",
     start_date: "2030-01-05",
 });
 
@@ -68,10 +68,13 @@ const it = {
 };
 
 new DateTimePicker("select_datetime", {
-    start_date: "2030-03-22T14:30:00",
-    last_date: new Date(2030, 2, 29, 22, 30),
-    first_day_no: 1,
-    l10n: it,
+    first_date: new Date(1680, 0, 1, 0, 0, 0),
+    start_date: new Date(),
+    last_date: new Date(2022, 6, 13, 0, 0),
+    first_day_no: 0,
+    round_to: 15,
+    force_original_time_picker: true,
+    // l10n: it,
 });
 
 new DateRangePicker("start_date", "end_date", {

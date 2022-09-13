@@ -42,6 +42,11 @@ export function DateTimePicker(id, settings = {}) {
     // Settings
     this.i18n = settings.l10n ? settings.l10n : this.i18n;
     this.round_to = settings.round_to ? settings.round_to : false;
+    this.force_original_time_picker = !this.round_to
+        ? false
+        : settings.force_original_time_picker
+        ? settings.force_original_time_picker
+        : false;
     this.date_output = settings.date_output ? settings.date_output : "full_ISO";
 
     const start_date = settings.start_date ? settings.start_date : null;
