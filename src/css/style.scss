@@ -1,3 +1,5 @@
+/** @format */
+
 $active_background: #fec601;
 $active_color: #000;
 $range_background: #eee;
@@ -9,162 +11,203 @@ $white_color: #fff;
 $arrow_start: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpolyline points='0 14 6 7 0 0 ' fill='%23FFF'/%3E%3C/svg%3E";
 $arrow_end: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpolyline points='14 0 8 7 14 14 ' fill='%23FFF'/%3E%3C/svg%3E";
 
-
-
-
-
 // Top level containers
-div.datetime-container, div.datetime-container * { box-sizing: border-box; font-family: arial, sans-serif; }
-.fix-float::after { content: ''; display: table; clear: both; }
+div.datetime-container,
+div.datetime-container * {
+    box-sizing: border-box;
+    font-family: arial, sans-serif;
+}
+.fix-float::after {
+    content: "";
+    display: table;
+    clear: both;
+}
 div.datetime-container {
-  position: relative;
-  border-radius: 5px 5px 0 0;
-  margin: 5px 0;
-  background-color: $light_grey_color;
-  text-align: center;
-  user-select: none;
-
-  // Buttons
-  button.date, button.time {
-    -webkit-appearance: none;
-    border: 0;
+    position: relative;
     border-radius: 5px 5px 0 0;
+    margin: 5px 0;
     background-color: $light_grey_color;
-    padding: 0;
-    width: 100%;
-    outline: 0;
-    text-transform: uppercase;
-    cursor: pointer;
-  }
+    text-align: center;
+    user-select: none;
 
-  button.w-50 {
-    float: left;
-    width: 50%;
-  }
-
-  button.active {
-    background-color: $active_background; color: $active_color;
-  }
-
-    button > span { display: inline-block; margin: 0 -2px; }
-    button span.week-day{ text-align: right; font-size: 14px; }
-    button span.month-day, button span.hours {
-      width: 45px;
-      text-align: center;
-      font-size: 36px;
+    // Buttons
+    button.date,
+    button.time {
+        -webkit-appearance: none;
+        border: 0;
+        border-radius: 5px 5px 0 0;
+        background-color: $light_grey_color;
+        padding: 0;
+        width: 100%;
+        outline: 0;
+        text-transform: uppercase;
+        cursor: pointer;
     }
-    button span.month-year { text-align: left; font-size: 16px; }
-      span.month-year span { position: relative; top: 2px; font-weight: bold; font-size: 14px; }
-    button span.minutes { font-size: 18px; }
+
+    button.w-50 {
+        float: left;
+        width: 50%;
+    }
+
+    button.active {
+        background-color: $active_background;
+        color: $active_color;
+    }
+
+    button > span {
+        display: inline-block;
+        margin: 0 -2px;
+    }
+    button span.week-day {
+        text-align: right;
+        font-size: 14px;
+    }
+    button span.month-day,
+    button span.hours {
+        width: 45px;
+        text-align: center;
+        font-size: 36px;
+    }
+    button span.month-year {
+        text-align: left;
+        font-size: 16px;
+    }
+    span.month-year span {
+        position: relative;
+        top: 2px;
+        font-weight: bold;
+        font-size: 14px;
+    }
+    button span.minutes {
+        font-size: 18px;
+    }
 }
 
+// Pickers
+div.picker {
+    display: none;
+    position: absolute;
+    z-index: 2;
+    border-radius: 0 0 5px 5px;
+    box-shadow: 0 1px 10px #555;
+    background-color: #fff;
+    width: 100%;
+    padding: 0 5px 10px;
 
+    table {
+        margin: 0 auto;
+        border-collapse: collapse;
+        width: 100%;
+    }
 
+    table a {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        line-height: 20px;
+        text-decoration: none;
+        color: #000;
+    }
 
+    table th {
+        font-weight: normal;
+        font-size: 20px;
+    }
 
-    // Pickers
-    div.picker {
-      display: none;
-      position: absolute;
-      z-index: 2;
-      border-radius: 0 0 5px 5px;
-      box-shadow: 0 1px 10px #555;
-      background-color: #fff;
-      width: 100%;
-      padding: 0 5px 10px;
+    table th span.month {
+        font-weight: bold;
+    }
 
-        table {
-          margin: 0 auto;
-          border-collapse: collapse;
-          width: 100%;
-        }
+    table th,
+    table td {
+        border-bottom: 1px solid #ddd;
+        padding: 10px 2px;
+        width: 14.285%;
+        text-align: center;
+        vertical-align: middle;
+    }
 
-        table a {
-          display: inline-block;
-          width: 20px;
-          height: 20px;
-          line-height: 20px;
-          text-decoration: none;
-          color: #000;
-        }
+    table td.day-label {
+        text-transform: uppercase;
+        font-size: 14px;
+    }
 
-        table th {
-          font-weight: normal;
-          font-size: 20px;
-        }
+    table td.selectable {
+        cursor: pointer;
+    }
+    table td.selectable:hover {
+        font-weight: bold;
+    }
 
-        table th span.month { font-weight: bold; }
+    table td.disabled,
+    table a.disabled {
+        color: $disabled_color;
+    }
 
-        table th, table td {
-          border-bottom: 1px solid #ddd;
-          padding: 10px 2px;
-          width: 14.285%;
-          text-align: center;
-          vertical-align: middle;
-        }
+    table td.start-day,
+    table td.end-day,
+    table td.time-selected {
+        background-repeat: no-repeat;
+        font-weight: bold;
+    }
 
-        table td.day-label { text-transform: uppercase; font-size: 14px; }
+    table td.start-day {
+        background-image: url($arrow_start);
+        background-position: left center;
+    }
 
-        table td.selectable { cursor: pointer; }
-        table td.selectable:hover { font-weight: bold; }
+    table td.end-day {
+        background-image: url($arrow_end);
+        background-position: right center;
+    }
 
-        table td.disabled, table a.disabled { color: $disabled_color; }
+    table td.start-day.end-day {
+        background-image: url($arrow_start), url($arrow_end);
+        background-position: left center, right center;
+    }
 
-        table td.start-day, table td.end-day, table td.time-selected {
-          background-repeat: no-repeat;
-          font-weight: bold;
-        }
+    table td.active,
+    table td.time-selected {
+        background-color: $active_background;
+        color: $active_color;
+    }
 
-        table td.start-day {
-          background-image: url($arrow_start);
-          background-position: left center;
-        }
+    table td.inactive {
+        background-color: $inactive_background;
+        color: $inactive_color;
+    }
 
-        table td.end-day {
-          background-image: url($arrow_end);
-          background-position: right center;
-        }
+    table td.range {
+        background-color: $range_background;
+    }
 
-        table td.start-day.end-day {
-          background-image: url($arrow_start), url($arrow_end);
-          background-position: left center, right center;
-        }
+    table td select {
+        border: 0;
+        outline: none;
+        border-radius: 5px 5px 0 0;
+        background-image: url("data:image/svg+xml,%3Csvg width='15' height='15' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M13.02 7.409v-3.98L7.752 7.854 2.485 3.43v3.978l5.267 4.426z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 0.7em top 50%;
+        background-size: 0.65em auto;
+        width: 60px;
+        height: 40px;
+        padding: 0 5px;
+        font-size: 18px;
+        appearance: none;
+    }
+    table td select::-ms-expand {
+        display: none;
+    }
 
-        table td.active, table td.time-selected {
-          background-color: $active_background; color: $active_color;
-        }
-
-        table td.inactive {
-          background-color: $inactive_background; color: $inactive_color;
-        }
-
-        table td.range { background-color: $range_background; }
-
-        table td select {
-          border: 0;
-          outline: none;
-          border-radius: 5px 5px 0 0;
-          background-image: url("data:image/svg+xml,%3Csvg width='15' height='15' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M13.02 7.409v-3.98L7.752 7.854 2.485 3.43v3.978l5.267 4.426z'/%3E%3C/svg%3E");
-          background-repeat: no-repeat;
-          background-position: right .7em top 50%;
-          background-size: .65em auto;
-          width: 60px;
-          height: 40px;
-          padding: 0 5px;
-          font-size: 18px;
-          appearance: none;
-        }
-        table td select::-ms-expand { display: none; }
-
-        button.confirm {
-          -webkit-appearance: none;
-          border: 0;
-          border-radius: 5px 5px 0 0;
-          background-color: $light_grey_color;
-          padding: 10px;
-          height: 40px;
-          outline: 0;
-          text-transform: uppercase;
-          cursor: pointer;
-        }
-      }
+    button.confirm {
+        -webkit-appearance: none;
+        border: 0;
+        border-radius: 5px 5px 0 0;
+        background-color: $light_grey_color;
+        padding: 10px;
+        height: 40px;
+        outline: 0;
+        text-transform: uppercase;
+        cursor: pointer;
+    }
+}
