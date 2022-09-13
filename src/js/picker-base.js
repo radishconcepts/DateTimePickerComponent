@@ -586,7 +586,7 @@ export function PickerBase() {
         const o = {};
         const t = e.target;
         o.text = t.textContent;
-
+        console.log("EVENT-TYPE", "start");
         const if_hour = o.text.indexOf(":") != -1 ? true : false;
 
         if (mode == "start") {
@@ -594,11 +594,13 @@ export function PickerBase() {
             o.container = this.start_container;
             o.btn = !if_hour ? this.start_date_btn : this.start_time_btn;
             o.picker = this.start_picker;
+            console.log("EVENT-TYPE", "1");
         } else {
             o.date = this.end_date;
             o.container = this.end_container;
             o.btn = !if_hour ? this.end_date_btn : this.end_time_btn;
             o.picker = this.end_picker;
+            console.log("EVENT-TYPE", "2");
         }
 
         if (if_hour) {
@@ -606,9 +608,11 @@ export function PickerBase() {
             o.hour = arr[0];
             o.minute = arr[1];
             // [ o.hour, o.minute ] = o.text.split(':');
+            console.log("EVENT-TYPE", "3");
         } else {
             o.prev_month = t.classList.contains("prev-month");
             o.next_month = t.classList.contains("next-month");
+            console.log("EVENT-TYPE", "4");
         }
 
         const substr = t.classList.contains("day")
@@ -620,11 +624,14 @@ export function PickerBase() {
             : "Hour";
         if (substr === "Month") {
             o.text = t.dataset.monthIndex;
+            console.log("EVENT-TYPE", "5");
         } else if (substr === "Year") {
             o.text = t.dataset.yearIndex;
+            console.log("EVENT-TYPE", "6");
         }
         const method = "select" + substr;
         this[method](o);
+        console.log("EVENT-METHOD", method);
     };
 
     /**
