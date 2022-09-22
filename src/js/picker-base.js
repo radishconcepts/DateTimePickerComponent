@@ -677,7 +677,8 @@ export function PickerBase() {
             const hours = time_coll[0];
             const minutes = time_coll[1];
             // const [ hours, minutes ] = button_time.querySelectorAll( 'span' );
-
+            // date.setHours(8);
+            // date.setMinutes(0);
             hours.textContent = ("0" + date.getHours()).slice(-2);
             minutes.textContent = `:${("0" + date.getMinutes()).slice(-2)}`;
         }
@@ -1053,7 +1054,8 @@ export function PickerBase() {
                     }
 
                     let current_minute = ("0" + m).slice(-2);
-                    let selected = m == day.getMinutes() ? "selected" : "";
+                    // let selected = m == day.getMinutes() ? "selected" : "";
+                    let selected = m == day.getMinutes() ? "" : "";
                     select_content += `<option value="${current_minute}" ${selected}>${current_minute}</option>`;
                 }
             }
@@ -1062,14 +1064,16 @@ export function PickerBase() {
         };
 
         let select_hours = '<select class="select-hours">';
-        for (let h = 0; h <= 23; h++) {
+        for (let h = 8; h < 22; h++) {
             _curr_day.setHours(h);
             if (_curr_day < this.first_date || _curr_day > this.last_date) {
                 continue;
             }
+            console.log(day);
 
             let current_hour = ("0" + h).slice(-2);
-            let selected = h == day.getHours() ? "selected" : "";
+            // let selected = h == day.getHours() ? "selected" : "";
+            let selected = h == day.getHours() ? "" : "";
             if (selected) {
                 selected_hour = h;
             }
@@ -1595,7 +1599,7 @@ export function PickerBase() {
         }
         const hours = [],
             gap = Math.round(60 / parseInt(this.round_to));
-        for (let h = 9; h < 22; h++) {
+        for (let h = 8; h < 22; h++) {
             for (let m = 0; m < gap; m++) {
                 let minute = m * parseInt(this.round_to);
                 hours.push(
