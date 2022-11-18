@@ -11,12 +11,12 @@
 // IE11 backcompatibility notes
 // Polyfill for Element.prototype.matches
 if (!Element.prototype.matches) {
-    Element.prototype.matches =
-        Element.prototype.matchesSelector ||
-        Element.prototype.mozMatchesSelector ||
-        Element.prototype.msMatchesSelector ||
-        Element.prototype.oMatchesSelector ||
-        Element.prototype.webkitMatchesSelector;
+  Element.prototype.matches =
+    Element.prototype.matchesSelector ||
+    Element.prototype.mozMatchesSelector ||
+    Element.prototype.msMatchesSelector ||
+    Element.prototype.oMatchesSelector ||
+    Element.prototype.webkitMatchesSelector;
 }
 // The following code will be transpiled with WebPack/Babel for IE11 backcompatibility.
 // If you want to use destructuring assignment too, you also need to install @babel/polyfill, but
@@ -71,372 +71,352 @@ if (!Element.prototype.matches) {
  * @property {boolean} force_original_time_picker If is true and round_to is set then we force the use of the original time picker else ise the alternative one.
  */
 export function PickerBase() {
-    this.i18n = {
-        jan: "Jan",
-        feb: "Feb",
-        mar: "Mar",
-        apr: "Apr",
-        may: "May",
-        jun: "Jun",
-        jul: "Jul",
-        aug: "Aug",
-        sep: "Sep",
-        oct: "Oct",
-        nov: "Nov",
-        dec: "Dec",
-        jan_: "January",
-        feb_: "February",
-        mar_: "March",
-        apr_: "April",
-        may_: "May",
-        jun_: "June",
-        jul_: "July",
-        aug_: "August",
-        sep_: "September",
-        oct_: "October",
-        nov_: "November",
-        dec_: "December",
-        mon: "Mon",
-        tue: "Tue",
-        wed: "Wed",
-        thu: "Thu",
-        fri: "Fri",
-        sat: "Sat",
-        sun: "Sun",
-        mon_: "Monday",
-        tue_: "Tuesday",
-        wed_: "Wednesday",
-        thu_: "Thursday",
-        fri_: "Friday",
-        sat_: "Saturday",
-        sun_: "Sunday",
-        done: "Done",
+  this.i18n = {
+    jan: "Jan",
+    feb: "Feb",
+    mar: "Mar",
+    apr: "Apr",
+    may: "May",
+    jun: "Jun",
+    jul: "Jul",
+    aug: "Aug",
+    sep: "Sep",
+    oct: "Oct",
+    nov: "Nov",
+    dec: "Dec",
+    jan_: "January",
+    feb_: "February",
+    mar_: "March",
+    apr_: "April",
+    may_: "May",
+    jun_: "June",
+    jul_: "July",
+    aug_: "August",
+    sep_: "September",
+    oct_: "October",
+    nov_: "November",
+    dec_: "December",
+    mon: "Mon",
+    tue: "Tue",
+    wed: "Wed",
+    thu: "Thu",
+    fri: "Fri",
+    sat: "Sat",
+    sun: "Sun",
+    mon_: "Monday",
+    tue_: "Tuesday",
+    wed_: "Wednesday",
+    thu_: "Thursday",
+    fri_: "Friday",
+    sat_: "Saturday",
+    sun_: "Sunday",
+    done: "Done",
+  };
+
+  const ms_per_day = 24 * 60 * 60 * 1000;
+  const default_days_order = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+  const months_order = [
+    "jan",
+    "feb",
+    "mar",
+    "apr",
+    "may",
+    "jun",
+    "jul",
+    "aug",
+    "sep",
+    "oct",
+    "nov",
+    "dec",
+  ];
+  // Click events don't always work like expected on iOS, we can use touchstart instead
+  const click = navigator.userAgent.match(/(iPad|iPhone|iPod)/g)
+    ? "touchstart"
+    : "click";
+  let user_days_order, days_order;
+  let mode = "start";
+
+  /**
+   * Adds an event handler to `td.selectable` elements.
+   * It's used by both {@link module:js/picker-base.PickerBase#showDatePicker|showDatePicker}
+   * and {@link module:js/picker-base.PickerBase#showTimePicker|showTimePicker} methods.
+   *
+   * @param {HTMLDivElement} picker The picker currently open
+   */
+  this.addOnSelectEvent = function (picker) {
+    let coll = picker.querySelectorAll("td.selectable");
+
+    for (let i = 0, n = coll.length; i < n; i++) {
+      coll[i].addEventListener("click", this.onSelectDayOrHour);
+    }
+  };
+
+  /**
+   * Checks if dates are still consistent after user selection and fixes any inconsistencies:
+   * - `start_date` must always be greater than `first_date`;
+   * - `end_date` must always be less than `last_date`.
+   * - `start_date` plus `min_range` must always be less or equal than `end_date`;
+   * - `end_date` minus `min_range` must always be greater or equal than `start_date`;
+   *
+   * It's used by both {@link module:js/picker-base.PickerBase#selectDay|selectDay}
+   * and {@link module:js/picker-base.PickerBase#selectHour|selectHour} methods.
+   */
+  this.checkDateTimeConsistency = function () {
+    const first_date_ms = this.first_date.getTime();
+    const start_date_ms = this.start_date.getTime();
+    const last_date_ms = this.last_date.getTime();
+
+    // Always checks these conditions
+    if (start_date_ms <= first_date_ms) {
+      this.start_date.setHours(
+        this.first_date.getHours(),
+        this.first_date.getMinutes(),
+        0,
+        0
+      );
+    }
+
+    if (start_date_ms >= last_date_ms) {
+      this.start_date.setHours(
+        this.last_date.getHours(),
+        this.last_date.getMinutes(),
+        0,
+        0
+      );
+    }
+
+    // Only checks if there's a range
+    if (this.end_date) {
+      const end_date_ms = this.end_date.getTime();
+
+      // start mode
+      if (mode == "start") {
+        if (start_date_ms + this.min_range >= end_date_ms) {
+          if (start_date_ms + this.min_range >= last_date_ms) {
+            this.start_date.setTime(last_date_ms - this.min_range);
+          }
+
+          this.end_date.setTime(this.start_date.getTime() + this.min_range);
+          this.printDateAndTime(this.end_container, this.end_date);
+        }
+      }
+
+      // end mode
+      else {
+        if (end_date_ms - this.min_range <= start_date_ms) {
+          if (end_date_ms - this.min_range <= first_date_ms) {
+            this.end_date.setTime(first_date_ms + this.min_range);
+          }
+
+          this.start_date.setTime(this.end_date.getTime() - this.min_range);
+          this.printDateAndTime(this.start_container, this.start_date);
+        }
+
+        if (end_date_ms >= last_date_ms) {
+          this.end_date.setHours(
+            this.last_date.getHours(),
+            this.last_date.getMinutes(),
+            0,
+            0
+          );
+        }
+      }
+    }
+  };
+
+  /**
+   * Closes the open picker and removes the active state from the the corresponding button.
+   *
+   * @param {HTMLDivElement} picker The picker currently open
+   * @param {HTMLDivElement} btn The active button
+   * @param {int} [msec=0] Number of milliseconds after which the picker is closed
+   */
+  this.closePicker = function (picker, btn, ms = 0) {
+    setTimeout(() => {
+      btn.classList.remove("active");
+      picker.style.display = "none";
+      document.removeEventListener(click, this.onClickOutside);
+    }, ms);
+  };
+
+  /**
+   * Opens the closed picker and removes the active state from the the corresponding button.
+   *
+   * @param {HTMLDivElement} picker The picker currently open
+   * @param {HTMLDivElement} btn The active button
+   * @param {int} [msec=0] Number of milliseconds after which the picker is closed
+   */
+  this.openPicker = function (btn, ms = 0) {
+    setTimeout(() => {
+      btn.click();
+    }, ms);
+  };
+
+  /**
+   * @desc
+   * Returns dates converted in milliseconds with hours and minutes set to 0.
+   *
+   * @return {object} The object containing `_dates`
+   */
+  this.get_Dates = function () {
+    const _today = new Date().setHours(0, 0, 0, 0);
+    const _start_date = new Date(this.start_date).setHours(0, 0, 0, 0);
+    const _first_date = new Date(this.first_date).setHours(0, 0, 0, 0);
+    const _last_date = new Date(this.last_date).setHours(0, 0, 0, 0);
+
+    let _end_date = null;
+    if (this.end_date) {
+      _end_date = new Date(this.end_date).setHours(0, 0, 0, 0);
+    }
+
+    return {
+      _today: _today,
+      _start_date: _start_date,
+      _first_date: _first_date,
+      _last_date: _last_date,
+      _end_date: _end_date,
     };
+  };
 
-    const ms_per_day = 24 * 60 * 60 * 1000;
-    const default_days_order = [
-        "sun",
-        "mon",
-        "tue",
-        "wed",
-        "thu",
-        "fri",
-        "sat",
-    ];
-    const months_order = [
-        "jan",
-        "feb",
-        "mar",
-        "apr",
-        "may",
-        "jun",
-        "jul",
-        "aug",
-        "sep",
-        "oct",
-        "nov",
-        "dec",
-    ];
-    // Click events don't always work like expected on iOS, we can use touchstart instead
-    const click = navigator.userAgent.match(/(iPad|iPhone|iPod)/g)
-        ? "touchstart"
-        : "click";
-    let user_days_order, days_order;
-    let mode = "start";
+  /**
+   * @desc
+   * Returns classes for `td` elements that contain the days of calendar.
+   * It's used inside a loop both when building table ({@link module:js/picker-base.PickerBase#showDatePicker|showDatePicker})
+   * and when updating it ({@link module:js/picker-base.PickerBase#selectDay|selectDay}).
+   *
+   * @param {string} day The current day inside a loop iteration
+   * @param {Date} date Date object with current year/month
+   * @param {object} _dates Dates converted in milliseconds with hours and minutes set to 0
+   * @return {string} Classes to be assigned to the `td` element
+   */
+  this.getDayClassName = function (day, date, _dates) {
+    const _curr_day = new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      day
+    ).getTime();
 
-    /**
-     * Adds an event handler to `td.selectable` elements.
-     * It's used by both {@link module:js/picker-base.PickerBase#showDatePicker|showDatePicker}
-     * and {@link module:js/picker-base.PickerBase#showTimePicker|showTimePicker} methods.
-     *
-     * @param {HTMLDivElement} picker The picker currently open
-     */
-    this.addOnSelectEvent = function (picker) {
-        let coll = picker.querySelectorAll("td.selectable");
+    let class_name = "day ";
+    if (_curr_day < _dates._first_date || _curr_day > _dates._last_date) {
+      class_name += "disabled ";
+    } else {
+      class_name += "selectable ";
+    }
 
-        for (let i = 0, n = coll.length; i < n; i++) {
-            coll[i].addEventListener("click", this.onSelectDayOrHour);
-        }
-    };
+    if (_curr_day == _dates._today) {
+      class_name += "today ";
+    }
 
-    /**
-     * Checks if dates are still consistent after user selection and fixes any inconsistencies:
-     * - `start_date` must always be greater than `first_date`;
-     * - `end_date` must always be less than `last_date`.
-     * - `start_date` plus `min_range` must always be less or equal than `end_date`;
-     * - `end_date` minus `min_range` must always be greater or equal than `start_date`;
-     *
-     * It's used by both {@link module:js/picker-base.PickerBase#selectDay|selectDay}
-     * and {@link module:js/picker-base.PickerBase#selectHour|selectHour} methods.
-     */
-    this.checkDateTimeConsistency = function () {
-        const first_date_ms = this.first_date.getTime();
-        const start_date_ms = this.start_date.getTime();
-        const last_date_ms = this.last_date.getTime();
+    if (_curr_day == _dates._start_date) {
+      class_name += "start-day ";
+      class_name +=
+        mode == "start"
+          ? class_name.indexOf("disabled") !== -1
+            ? " "
+            : "active "
+          : "inactive ";
+    }
 
-        // Always checks these conditions
-        if (start_date_ms <= first_date_ms) {
-            this.start_date.setHours(
-                this.first_date.getHours(),
-                this.first_date.getMinutes(),
-                0,
-                0
-            );
-        }
+    if (this.end_date) {
+      if (_curr_day > _dates._start_date && _curr_day < _dates._end_date) {
+        class_name += " range";
+      }
 
-        if (start_date_ms >= last_date_ms) {
-            this.start_date.setHours(
-                this.last_date.getHours(),
-                this.last_date.getMinutes(),
-                0,
-                0
-            );
-        }
+      if (_curr_day == _dates._end_date) {
+        class_name += " end-day ";
+        class_name +=
+          mode == "end"
+            ? class_name.indexOf("disabled") !== -1
+              ? " "
+              : "active "
+            : "inactive ";
+      }
+    }
 
-        // Only checks if there's a range
-        if (this.end_date) {
-            const end_date_ms = this.end_date.getTime();
+    return class_name;
+  };
 
-            // start mode
-            if (mode == "start") {
-                if (start_date_ms + this.min_range >= end_date_ms) {
-                    if (start_date_ms + this.min_range >= last_date_ms) {
-                        this.start_date.setTime(last_date_ms - this.min_range);
-                    }
+  /**
+   * Returns classes for `td` elements that contain the hour/minute pairs (HH:mm).
+   * It's used inside a loop both when building table ({@link module:js/picker-base.PickerBase#showTimePicker|showTimePicker})
+   * and when updating it ({@link module:js/picker-base.PickerBase#selectHour|selectHour}).
+   *
+   * @param {string} hour An hour/minute pair (HH:mm) inside a loop iteration
+   * @param {Date} date Date object with current hour/minutes
+   * @return {string} Classes to be assigned to the `td` element
+   */
+  this.getHourClassName = function (hour, date) {
+    const selected_hour =
+      ("0" + date.getHours()).slice(-2) +
+      ":" +
+      ("0" + date.getMinutes()).slice(-2);
 
-                    this.end_date.setTime(
-                        this.start_date.getTime() + this.min_range
-                    );
-                    this.printDateAndTime(this.end_container, this.end_date);
-                }
-            }
+    const arr = hour.split(":");
+    const h = arr[0];
+    const m = arr[1];
+    // const [ h, m ] = hour.split( ':' );
 
-            // end mode
-            else {
-                if (end_date_ms - this.min_range <= start_date_ms) {
-                    if (end_date_ms - this.min_range <= first_date_ms) {
-                        this.end_date.setTime(first_date_ms + this.min_range);
-                    }
+    const _curr_day = new Date(date);
+    _curr_day.setHours(h, m, 0, 0);
 
-                    this.start_date.setTime(
-                        this.end_date.getTime() - this.min_range
-                    );
-                    this.printDateAndTime(
-                        this.start_container,
-                        this.start_date
-                    );
-                }
+    let class_name = "hour ";
+    if (_curr_day < this.first_date || _curr_day > this.last_date) {
+      class_name += "disabled";
+    } else {
+      class_name += "selectable";
+      class_name += selected_hour == hour ? " time-selected " + mode : "";
+    }
 
-                if (end_date_ms >= last_date_ms) {
-                    this.end_date.setHours(
-                        this.last_date.getHours(),
-                        this.last_date.getMinutes(),
-                        0,
-                        0
-                    );
-                }
-            }
-        }
-    };
+    return class_name;
+  };
 
-    /**
-     * Closes the open picker and removes the active state from the the corresponding button.
-     *
-     * @param {HTMLDivElement} picker The picker currently open
-     * @param {HTMLDivElement} btn The active button
-     * @param {int} [msec=0] Number of milliseconds after which the picker is closed
-     */
-    this.closePicker = function (picker, btn, ms = 0) {
-        setTimeout(() => {
-            btn.classList.remove("active");
-            picker.style.display = "none";
-            document.removeEventListener(click, this.onClickOutside);
-        }, ms);
-    };
+  /**
+   * @desc
+   * Returns HTML for buttons. It's used to populate `start_container` and `end_container`.
+   *
+   * @param {string} mode 'start' or 'end'
+   * @param {string} type 'date' or 'datetime'
+   * @param {object|null} styles User defined styles object
+   * @return {string} HTML for requested button
+   */
+  this.getHTML = function (mode, type, styles) {
+    let html,
+      css = "";
+    const id = this[mode + "_container"].id;
 
-    /**
-     * Opens the closed picker and removes the active state from the the corresponding button.
-     *
-     * @param {HTMLDivElement} picker The picker currently open
-     * @param {HTMLDivElement} btn The active button
-     * @param {int} [msec=0] Number of milliseconds after which the picker is closed
-     */
-    this.openPicker = function (btn, ms = 0) {
-        setTimeout(() => {
-            btn.click();
-        }, ms);
-    };
+    if (styles) {
+      let selector1 = `div#${id} button.active, div#${id} table td.active, div#${id} table td.time-selected`;
+      let selector2 = `div#${id} table td.inactive`;
+      if (this.end_container) {
+        const id2 = this.end_container.id;
+        selector1 += `, div#${id2} button.active, div#${id2} table td.active, div#${id2} table td.time-selected`;
+        selector2 += `, div#${id2} table td.inactive`;
+      }
 
-    /**
-     * @desc
-     * Returns dates converted in milliseconds with hours and minutes set to 0.
-     *
-     * @return {object} The object containing `_dates`
-     */
-    this.get_Dates = function () {
-        const _today = new Date().setHours(0, 0, 0, 0);
-        const _start_date = new Date(this.start_date).setHours(0, 0, 0, 0);
-        const _first_date = new Date(this.first_date).setHours(0, 0, 0, 0);
-        const _last_date = new Date(this.last_date).setHours(0, 0, 0, 0);
-
-        let _end_date = null;
-        if (this.end_date) {
-            _end_date = new Date(this.end_date).setHours(0, 0, 0, 0);
-        }
-
-        return {
-            _today: _today,
-            _start_date: _start_date,
-            _first_date: _first_date,
-            _last_date: _last_date,
-            _end_date: _end_date,
-        };
-    };
-
-    /**
-     * @desc
-     * Returns classes for `td` elements that contain the days of calendar.
-     * It's used inside a loop both when building table ({@link module:js/picker-base.PickerBase#showDatePicker|showDatePicker})
-     * and when updating it ({@link module:js/picker-base.PickerBase#selectDay|selectDay}).
-     *
-     * @param {string} day The current day inside a loop iteration
-     * @param {Date} date Date object with current year/month
-     * @param {object} _dates Dates converted in milliseconds with hours and minutes set to 0
-     * @return {string} Classes to be assigned to the `td` element
-     */
-    this.getDayClassName = function (day, date, _dates) {
-        const _curr_day = new Date(
-            date.getFullYear(),
-            date.getMonth(),
-            day
-        ).getTime();
-
-        let class_name = "day ";
-        if (_curr_day < _dates._first_date || _curr_day > _dates._last_date) {
-            class_name += "disabled ";
-        } else {
-            class_name += "selectable ";
-        }
-
-        if (_curr_day == _dates._today) {
-            class_name += "today ";
-        }
-
-        if (_curr_day == _dates._start_date) {
-            class_name += "start-day ";
-            class_name +=
-                mode == "start"
-                    ? class_name.indexOf("disabled") !== -1
-                        ? " "
-                        : "active "
-                    : "inactive ";
-        }
-
-        if (this.end_date) {
-            if (
-                _curr_day > _dates._start_date &&
-                _curr_day < _dates._end_date
-            ) {
-                class_name += " range";
-            }
-
-            if (_curr_day == _dates._end_date) {
-                class_name += " end-day ";
-                class_name +=
-                    mode == "end"
-                        ? class_name.indexOf("disabled") !== -1
-                            ? " "
-                            : "active "
-                        : "inactive ";
-            }
-        }
-
-        return class_name;
-    };
-
-    /**
-     * Returns classes for `td` elements that contain the hour/minute pairs (HH:mm).
-     * It's used inside a loop both when building table ({@link module:js/picker-base.PickerBase#showTimePicker|showTimePicker})
-     * and when updating it ({@link module:js/picker-base.PickerBase#selectHour|selectHour}).
-     *
-     * @param {string} hour An hour/minute pair (HH:mm) inside a loop iteration
-     * @param {Date} date Date object with current hour/minutes
-     * @return {string} Classes to be assigned to the `td` element
-     */
-    this.getHourClassName = function (hour, date) {
-        const selected_hour =
-            ("0" + date.getHours()).slice(-2) +
-            ":" +
-            ("0" + date.getMinutes()).slice(-2);
-
-        const arr = hour.split(":");
-        const h = arr[0];
-        const m = arr[1];
-        // const [ h, m ] = hour.split( ':' );
-
-        const _curr_day = new Date(date);
-        _curr_day.setHours(h, m, 0, 0);
-
-        let class_name = "hour ";
-        if (_curr_day < this.first_date || _curr_day > this.last_date) {
-            class_name += "disabled";
-        } else {
-            class_name += "selectable";
-            class_name += selected_hour == hour ? " time-selected " + mode : "";
-        }
-
-        return class_name;
-    };
-
-    /**
-     * @desc
-     * Returns HTML for buttons. It's used to populate `start_container` and `end_container`.
-     *
-     * @param {string} mode 'start' or 'end'
-     * @param {string} type 'date' or 'datetime'
-     * @param {object|null} styles User defined styles object
-     * @return {string} HTML for requested button
-     */
-    this.getHTML = function (mode, type, styles) {
-        let html,
-            css = "";
-        const id = this[mode + "_container"].id;
-
-        if (styles) {
-            let selector1 = `div#${id} button.active, div#${id} table td.active, div#${id} table td.time-selected`;
-            let selector2 = `div#${id} table td.inactive`;
-            if (this.end_container) {
-                const id2 = this.end_container.id;
-                selector1 += `, div#${id2} button.active, div#${id2} table td.active, div#${id2} table td.time-selected`;
-                selector2 += `, div#${id2} table td.inactive`;
-            }
-
-            if (styles.active_background && styles.active_color) {
-                css += `${selector1} {
+      if (styles.active_background && styles.active_color) {
+        css += `${selector1} {
           background-color: ${styles.active_background}; color: ${styles.active_color};
         }`;
-            }
+      }
 
-            if (styles.inactive_background && styles.inactive_color) {
-                css += `${selector2} {
+      if (styles.inactive_background && styles.inactive_color) {
+        css += `${selector2} {
           background-color: ${styles.inactive_background}; color: ${styles.inactive_color};
         }`;
-            }
+      }
 
-            if (css) {
-                css = `<style>${css}</style>`;
-            }
-        }
+      if (css) {
+        css = `<style>${css}</style>`;
+      }
+    }
 
-        const input = !this[mode + "_container"].querySelector(
-            "input.date_output"
-        )
-            ? `<input type="hidden" name="${id}_value" class="date_output" value="">`
-            : "";
+    const input = !this[mode + "_container"].querySelector("input.date_output")
+      ? `<input type="hidden" name="${id}_value" class="date_output" value="">`
+      : "";
 
-        switch (type) {
-            case "datetime":
-                html = `<div class="buttons-container fix-float">
+    switch (type) {
+      case "datetime":
+        html = `<div class="buttons-container fix-float">
           <button type="button" class="date ${mode} w-50">
             <span class="week-day">mon</span>
             <span class="month-day">00</span>
@@ -449,10 +429,10 @@ export function PickerBase() {
         </div>
         <div class="picker"></div>
         ${input}`;
-                break;
-            case "date":
-            default:
-                html = `<div class="buttons-container">
+        break;
+      case "date":
+      default:
+        html = `<div class="buttons-container">
           <button type="button" class="date ${mode}">
             <span class="week-day">mon</span>
             <span class="month-day">00</span>
@@ -461,637 +441,615 @@ export function PickerBase() {
         </div>
         <div class="picker"></div>
         ${input}`;
-        }
+    }
 
-        return css + html;
+    return css + html;
+  };
+
+  /**
+   * This is a click handler that closes the picker if the user clicks outside of it.
+   *
+   * @param {Event} e
+   *
+   * @see {@link module:js/picker-base.PickerBase#closePicker|closePicker}
+   *
+   * @todo a.prev-month and a.next-month must be outside the table.date element
+   */
+  this.onClickOutside = (e) => {
+    let div = mode == "start" ? this.start_picker : this.end_picker;
+
+    let el = e.target;
+    let inside = false;
+
+    do {
+      if (
+        el.matches(`#${div.parentElement.id}.datetime-container`) ||
+        el.classList.contains("prev-month") ||
+        el.classList.contains("next-month") ||
+        el.classList.contains("prev-year") ||
+        el.classList.contains("next-year") ||
+        el.classList.contains("prev-year-range") ||
+        el.classList.contains("next-year-range") ||
+        el.classList.contains("month") ||
+        el.classList.contains("year")
+      ) {
+        inside = true;
+        break;
+      }
+      el = el.parentElement;
+    } while (el !== null && el.nodeType === 1);
+
+    if (!inside) {
+      this.closePicker(
+        div,
+        div.previousElementSibling.querySelector(".active")
+      );
+    }
+  };
+
+  /**
+   * This is a click handler triggered when the user opens the picker by clicking either a
+   * date or a time button. This method sets the value of the mode variable.
+   *
+   * @param {Event} e
+   *
+   * @see {@link module:js/picker-base.PickerBase#showDatePicker|showDatePicker}
+   * @see {@link module:js/picker-base.PickerBase#showTimePicker|showTimePicker}
+   * @see {@link module:js/picker-base.PickerBase~scrollPage|scrollPage}
+   */
+  this.onOpenPicker = (e) => {
+    const btn = e.currentTarget;
+    let picker, close, date;
+
+    // Adds or removes the active state from current button when it's clicked
+    btn.classList.toggle("active");
+
+    // Removes the active state from the other buttons except the current one
+    let css_selector = `div#${this.start_container.id} button`;
+    css_selector += this.end_container?.id
+      ? `, div#${this.end_container.id} button`
+      : "";
+    [].slice.call(document.querySelectorAll(css_selector)).forEach((item) => {
+      if (item != btn) {
+        item.classList.remove("active");
+      }
+    });
+
+    // If there is not a range, only the start date exists
+    if (btn.classList.contains("start")) {
+      picker = this.start_picker;
+      close = this.end_picker;
+      date = this.start_date;
+      mode = "start";
+    } else {
+      picker = this.end_picker;
+      close = this.start_picker;
+      date = this.end_date;
+      mode = "end";
+    }
+
+    // If the button has the active state...
+    if (btn.classList.contains("active")) {
+      picker.style.display = "block";
+      // Closes the picker previously opened (if any)
+      if (close) {
+        close.style.display = "none";
+      }
+
+      document.addEventListener(click, this.onClickOutside);
+
+      let prefix = btn.classList.contains("date") ? "Date" : "Time";
+      if (
+        prefix == "Time" &&
+        this.round_to &&
+        !this.force_original_time_picker
+      ) {
+        prefix = "Alternative" + prefix;
+      }
+      let method = "show" + prefix + "Picker";
+      this[method](picker, date);
+
+      scrollPage(picker);
+    }
+
+    // ...otherwise
+    else {
+      // The picker was already open, so we close it
+      picker.style.display = "none";
+      document.removeEventListener(click, this.onClickOutside);
+    }
+  };
+
+  /**
+   * @desc
+   * This is a click handler triggered when the user clicks to select either a day or an hour.
+   * It passes an {@link module:js/picker-base.PickerBaseNS.UserSelection|UserSelection} object as
+   * parameter to {@link module:js/picker-base.PickerBase#selectDay|selectDay} or to
+   * {@link module:js/picker-base.PickerBase#selectHour|selectHour} methods, depending on the user
+   * clicks on a day button or on an hour button respectively.
+   *
+   * @param {Event} e
+   *
+   * @see {@link module:js/picker-base.PickerBase#selectDay|selectDay}
+   * @see {@link module:js/picker-base.PickerBase#selectHour|selectHour}
+   */
+  this.onSelectDayOrHour = (e) => {
+    const o = {};
+    const t = e.target;
+    o.text = t.textContent;
+    const if_hour = o.text.indexOf(":") != -1 ? true : false;
+
+    if (mode == "start") {
+      o.date = this.start_date;
+      o.container = this.start_container;
+      o.btn = !if_hour ? this.start_date_btn : this.start_time_btn;
+      o.picker = this.start_picker;
+    } else {
+      o.date = this.end_date;
+      o.container = this.end_container;
+      o.btn = !if_hour ? this.end_date_btn : this.end_time_btn;
+      o.picker = this.end_picker;
+    }
+
+    if (if_hour) {
+      let arr = o.text.split(":");
+      o.hour = arr[0];
+      o.minute = arr[1];
+      // [ o.hour, o.minute ] = o.text.split(':')
+    } else {
+      o.prev_month = t.classList.contains("prev-month");
+      o.next_month = t.classList.contains("next-month");
+    }
+
+    const substr = t.classList.contains("day")
+      ? "Day"
+      : t.classList.contains("month")
+      ? "Month"
+      : t.classList.contains("year")
+      ? "Year"
+      : "Hour";
+    if (substr === "Month") {
+      o.text = t.dataset.monthIndex;
+    } else if (substr === "Year") {
+      o.text = t.dataset.yearIndex;
+    }
+    const method = "select" + substr;
+    this[method](o);
+  };
+
+  /**
+   * @desc
+   * Displays date and/or time in their own buttons. According to `settings.date_output` property,
+   * it outputs the date in local time to the value attribute of `input.date_output`.
+   *
+   * @param {HTMLDivElement} div `div` element where to display the date/time
+   * @param {Date} date Date to be displayed
+   *
+   * @see {@link module:js/picker-base.PickerBase~getWeekDayNo|getWeekDayNo}
+   * @see {@link module:js/picker-base.PickerBase~date2ISOString|date2ISOString}
+   */
+  this.printDateAndTime = function (div, date) {
+    // Displays date
+    const date_coll = div.querySelectorAll("button.date > *");
+    const week_day_span = date_coll[0];
+    const month_day = date_coll[1];
+    const month_year_span = date_coll[2];
+    // const [ week_day_span, month_day, month_year_span ] = div.querySelectorAll( 'button.date > *' );
+
+    const week_day_number = getWeekDayNo(date);
+
+    week_day_span.textContent = "";
+    // week_day_span.textContent =
+    //     this.i18n[days_order[week_day_number] + "_"];
+    month_day.textContent = ("0" + date.getDate()).slice(-2);
+    month_year_span.innerHTML = `<span data-i18n="${
+      months_order[date.getMonth()]
+    }_">${
+      this.i18n[months_order[date.getMonth()] + "_"]
+    }</span><br>${date.getFullYear()}`;
+
+    // Displays time
+    const button_time = div.querySelector("button.time");
+    if (button_time) {
+      const time_coll = button_time.querySelectorAll("span");
+      const hours = time_coll[0];
+      const minutes = time_coll[1];
+      // const [ hours, minutes ] = button_time.querySelectorAll( 'span' );
+      // date.setHours(8);
+      // date.setMinutes(0);
+      hours.textContent = ("0" + date.getHours()).slice(-2);
+      minutes.textContent = `:${("0" + date.getMinutes()).slice(-2)}`;
+    }
+
+    // Outputs date and time according to this.date_output
+    let output_date;
+    const full_iso = date2ISOString(date);
+    switch (this.date_output) {
+      // YYYY-MM-DDTHH:mm:ss
+      case "full_ISO":
+        output_date = full_iso;
+        break;
+      // YYYY-MM-DD
+      case "short_ISO":
+        let arr = full_iso.split("T");
+        output_date = arr[0];
+        // [ output_date, ] = full_iso.split( 'T' );
+        break;
+      // Timestamp value without milliseconds
+      case "timestamp":
+      default:
+        output_date = date2UTCTimestamp(date);
+    }
+
+    div.querySelector("input.date_output").value = output_date;
+  };
+
+  /**
+   * @desc
+   * Rounds minutes to the next `round_to` value.
+   *
+   * @param {array} dates An array containing an arbitrary number of dates to be rounded
+   */
+  this.roundMinutes = function (dates) {
+    dates.forEach((date) => {
+      date.setSeconds(0, 0);
+
+      let sum_one_hour = false;
+      let m = date.getMinutes();
+      let h = date.getHours();
+
+      // Rounds m to the next round value
+      const round = this.round_to ? this.round_to : 30;
+      if (m % round != 0) {
+        for (let i = m; i <= m + round; i++) {
+          if (i % round == 0) {
+            m = i;
+            break;
+          }
+        }
+      }
+
+      if (m == 60) {
+        m = 0;
+        // If we round minutes to 0 we have to sum +1 hour
+        h = h + 1;
+        // If, after rounding, the midnight is reached, we have to sum +1 day
+        if (h == 24) {
+          h = 0;
+          date.setDate(date.getDate() + 1);
+        }
+      }
+
+      date.setHours(h, m);
+    });
+  };
+
+  /**
+   * @desc
+   * Selects the year clicked by the user and then closes the picker. It's used by
+   * {@link module:js/picker-base.PickerBase#onSelectDayOrHour|onSelectDayOrHour} method.
+   *
+   * @param {module:js/picker-base.PickerBaseNS.UserSelection} o Object with contextual info
+   *
+   * @see {@link module:js/picker-base.PickerBase#checkDateTimeConsistency|checkDateTimeConsistency}
+   * @see {@link module:js/picker-base.PickerBase#printDateAndTime|printDateAndTime}
+   * @see {@link module:js/picker-base.PickerBase#closePicker|closePicker}
+   */
+  this.selectYear = function (o) {
+    o.date.setFullYear(parseInt(o.text), o.date.getMonth(), o.date.getDate());
+
+    this.checkDateTimeConsistency();
+
+    // Updates day classes after user selection
+    const coll = document.querySelectorAll("td.year.selectable");
+
+    for (let i = 0, n = coll.length; i < n; i++) {
+      let class_name = "year selectable";
+      if (parseInt(coll[i].dataset.yearIndex) === o.date.getFullYear()) {
+        class_name += " start-year active";
+      }
+      coll[i].className = class_name;
+    }
+
+    this.printDateAndTime(o.container, o.date);
+    this.showMonthPicker(o.picker, o.date);
+  };
+
+  /**
+   * @desc
+   * Selects the month clicked by the user and then closes the picker. It's used by
+   * {@link module:js/picker-base.PickerBase#onSelectDayOrHour|onSelectDayOrHour} method.
+   *
+   * @param {module:js/picker-base.PickerBaseNS.UserSelection} o Object with contextual info
+   *
+   * @see {@link module:js/picker-base.PickerBase#checkDateTimeConsistency|checkDateTimeConsistency}
+   * @see {@link module:js/picker-base.PickerBase#printDateAndTime|printDateAndTime}
+   * @see {@link module:js/picker-base.PickerBase#closePicker|closePicker}
+   */
+  this.selectMonth = function (o) {
+    o.date.setFullYear(
+      this.current_year.getFullYear(),
+      parseInt(o.text),
+      o.date.getDate()
+    );
+
+    this.checkDateTimeConsistency();
+
+    // Updates day classes after user selection
+    const coll = document.querySelectorAll("td.month.selectable");
+
+    for (let i = 0, n = coll.length; i < n; i++) {
+      let class_name = "month selectable";
+      if (parseInt(coll[i].dataset.monthIndex) === o.date.getMonth()) {
+        class_name += " start-month active";
+      }
+      coll[i].className = class_name;
+    }
+
+    this.printDateAndTime(o.container, o.date);
+    this.showDatePicker(o.picker, o.date);
+  };
+
+  /**
+   * @desc
+   * Selects the day clicked by the user and then closes the picker. It's used by
+   * {@link module:js/picker-base.PickerBase#onSelectDayOrHour|onSelectDayOrHour} method.
+   *
+   * @param {module:js/picker-base.PickerBaseNS.UserSelection} o Object with contextual info
+   *
+   * @see {@link module:js/picker-base.PickerBase#printDateAndTime|printDateAndTime}
+   * @see {@link module:js/picker-base.PickerBase#closePicker|closePicker}
+   */
+  this.selectDay = function (o) {
+    // Updates this.start_date or this.end_date after user selection
+    if (o.prev_month) {
+      o.date.setFullYear(
+        this.prev_month.getFullYear(),
+        this.prev_month.getMonth(),
+        o.text
+      );
+    } else if (o.next_month) {
+      o.date.setFullYear(
+        this.next_month.getFullYear(),
+        this.next_month.getMonth(),
+        o.text
+      );
+    } else {
+      o.date.setFullYear(
+        this.current_month.getFullYear(),
+        this.current_month.getMonth(),
+        o.text
+      );
+    }
+
+    this.checkDateTimeConsistency();
+
+    const _dates = this.get_Dates();
+
+    // Updates day classes after user selection
+    const coll = document.querySelectorAll("td.selectable");
+
+    for (let i = 0, n = coll.length; i < n; i++) {
+      let param,
+        class_name = "";
+      if (coll[i].classList.contains("prev-month")) {
+        param = this.prev_month;
+        class_name += "prev-month ";
+      } else if (coll[i].classList.contains("next-month")) {
+        param = this.next_month;
+        class_name += "next-month ";
+      } else {
+        param = this.current_month;
+      }
+
+      class_name += this.getDayClassName(coll[i].textContent, param, _dates);
+      coll[i].className = class_name;
+    }
+
+    this.printDateAndTime(o.container, o.date);
+    this.closePicker(o.picker, o.btn, 1);
+
+    if (o.btn.classList.contains("date")) {
+      const timeBtn = o.btn.parentElement.querySelector(".time");
+      this.openPicker(timeBtn, 1);
+    }
+  };
+
+  /**
+   * Selects the hour/minute pair clicked by the user and then closes the picker.
+   *
+   * @param {module:js/picker-base.PickerBaseNS.UserSelection} o Object with contextual info
+   *
+   * @see {@link module:js/picker-base.PickerBase#printDateAndTime|printDateAndTime}
+   * @see {@link module:js/picker-base.PickerBase#closePicker|closePicker}
+   */
+  this.selectHour = function (o) {
+    // Updates hour and minute with those selected by the user
+    o.date.setHours(o.hour, o.minute, 0, 0);
+
+    this.checkDateTimeConsistency();
+
+    // Updates the table after user selection
+    let coll = document.querySelectorAll("td.selectable");
+
+    for (let i = 0, n = coll.length; i < n; i++) {
+      coll[i].className = this.getHourClassName(coll[i].textContent, o.date);
+    }
+
+    this.printDateAndTime(o.container, o.date);
+
+    this.closePicker(o.picker, o.btn, 1);
+  };
+
+  /**
+   * @desc
+   * Initializes the end date picker properties.
+   *
+   * @param {string} id id of the `div` element that will contain the button(s)
+   * @param {Date|string|null} end_date_setting End selected date from settings
+   *
+   * @see {@link module:js/picker-base.PickerBase~getDateBetween|getDateBetween}
+   * @see {@link module:js/picker-base.PickerBase~roundMinutes|roundMinutes}
+   */
+  this.setEndPickerProps = function (id, end_date_setting) {
+    const el = document.getElementById(id);
+    if (el == null || el.nodeName != "DIV") {
+      throw new Error(`Does div#${id} exist? Please, check your HTML code`);
+    }
+
+    // Default end selected date is one day more than start selected date
+    const end_date_default = new Date(
+      this.start_date.getTime() + this.min_range
+    );
+    let end_date = getDateBetween(
+      end_date_default,
+      end_date_setting,
+      el.querySelector("input.date_output")
+    );
+    // End selected date must be greater than start selected date
+    if (end_date < this.start_date) {
+      end_date = end_date_default;
+    }
+
+    this.roundMinutes([end_date]);
+
+    // End selected date can't be greater than last selectable date
+    if (end_date > this.last_date) {
+      this.last_date = end_date;
+    }
+
+    this.end_container = el;
+    this.end_date = end_date;
+  };
+
+  /**
+   * @desc
+   * Initializes the start date picker properties.
+   *
+   * @param {string} id id of the `div` element that will contain the button(s)
+   * @param {Date|string|null} start_date_setting Start selected date from settings
+   * @param {Date|string|null} first_date_setting First selectable date from settings
+   * @param {Date|string|null} last_date_setting Last selectable date from settings
+   * @param {number} first_day_no Day the week must start with. Similarly to the returned values of `Date.getDate` method, accepted range values are 0-6 where 0 means Sunday, 1 means Monday and so on
+   *
+   * @see {@link module:js/picker-base.PickerBase~getDateBetween|getDateBetween}
+   * @see {@link module:js/picker-base.PickerBase~roundMinutes|roundMinutes}
+   * @see {@link module:js/picker-base.PickerBase~setDaysOrder|setDaysOrder}
+   */
+  this.setStartPickerProps = function (
+    id,
+    start_date_setting,
+    first_date_setting,
+    last_date_setting,
+    first_day_no
+  ) {
+    const el = document.getElementById(id);
+    if (el == null || el.nodeName != "DIV") {
+      throw new Error(`Does div#${id} exist? Please, check your HTML code`);
+    }
+
+    // Default start selected date is one day more than current date
+    const start_date_default = new Date(Date.now() + ms_per_day);
+    let start_date = getDateBetween(
+      start_date_default,
+      start_date_setting,
+      el.querySelector("input.date_output")
+    );
+
+    // Default first selectable date is the current date
+    const first_date_default = new Date();
+    let first_date = getDateBetween(first_date_default, first_date_setting);
+    // Start selected date must be greater than first selectable date
+    if (start_date < first_date) {
+      first_date = start_date;
+    }
+
+    // Default last selectable date is one year more than start selected date
+    const last_date_default = new Date(start_date.getTime() + ms_per_day * 365);
+    let last_date = getDateBetween(last_date_default, last_date_setting);
+    // Last selectable date must be greater than start selected date
+    if (last_date < start_date) {
+      last_date = last_date_default;
+    }
+
+    if (this.round_to) {
+      if ([1, 5, 10, 15, 20, 30].indexOf(this.round_to) < 0) {
+        this.round_to = 1;
+      }
+    }
+    this.roundMinutes([start_date, first_date, last_date]);
+
+    setDaysOrder(first_day_no);
+
+    this.start_container = el;
+    this.start_date = start_date;
+    this.first_date = first_date;
+    this.last_date = last_date;
+  };
+
+  /**
+   * @desc
+   * Creates select elements for hours and minutes inside the picker
+   *
+   * @param {HTMLDivElement} picker The picker that contains the table
+   * @param {Date} day Current day
+   *
+   * @see {@link module:js/picker-base.PickerBase~getWeekDayNo|getWeekDayNo}
+   *
+   * @since 1.1.0
+   */
+  this.showAlternativeTimePicker = function (picker, day) {
+    let _curr_day = new Date(day);
+    let selected_hour;
+
+    let getSelectMinutesOptions = () => {
+      let select_content = "";
+      for (let m = 0; m <= 59; m++) {
+        if (m % this.round_to == 0) {
+          _curr_day.setHours(selected_hour, m);
+          if (_curr_day < this.first_date || _curr_day > this.last_date) {
+            continue;
+          }
+
+          let current_minute = ("0" + m).slice(-2);
+          // let selected = m == day.getMinutes() ? "selected" : "";
+          let selected = m == day.getMinutes() ? "" : "";
+          select_content += `<option value="${current_minute}" ${selected}>${current_minute}</option>`;
+        }
+      }
+
+      return select_content;
     };
 
-    /**
-     * This is a click handler that closes the picker if the user clicks outside of it.
-     *
-     * @param {Event} e
-     *
-     * @see {@link module:js/picker-base.PickerBase#closePicker|closePicker}
-     *
-     * @todo a.prev-month and a.next-month must be outside the table.date element
-     */
-    this.onClickOutside = (e) => {
-        let div = mode == "start" ? this.start_picker : this.end_picker;
-
-        let el = e.target;
-        let inside = false;
-
-        do {
-            if (
-                el.matches(`#${div.parentElement.id}.datetime-container`) ||
-                el.classList.contains("prev-month") ||
-                el.classList.contains("next-month") ||
-                el.classList.contains("prev-year") ||
-                el.classList.contains("next-year") ||
-                el.classList.contains("prev-year-range") ||
-                el.classList.contains("next-year-range") ||
-                el.classList.contains("month") ||
-                el.classList.contains("year")
-            ) {
-                inside = true;
-                break;
-            }
-            el = el.parentElement;
-        } while (el !== null && el.nodeType === 1);
-
-        if (!inside) {
-            this.closePicker(
-                div,
-                div.previousElementSibling.querySelector(".active")
-            );
-        }
-    };
-
-    /**
-     * This is a click handler triggered when the user opens the picker by clicking either a
-     * date or a time button. This method sets the value of the mode variable.
-     *
-     * @param {Event} e
-     *
-     * @see {@link module:js/picker-base.PickerBase#showDatePicker|showDatePicker}
-     * @see {@link module:js/picker-base.PickerBase#showTimePicker|showTimePicker}
-     * @see {@link module:js/picker-base.PickerBase~scrollPage|scrollPage}
-     */
-    this.onOpenPicker = (e) => {
-        const btn = e.currentTarget;
-        let picker, close, date;
-
-        // Adds or removes the active state from current button when it's clicked
-        btn.classList.toggle("active");
-
-        // Removes the active state from the other buttons except the current one
-        let css_selector = `div#${this.start_container.id} button`;
-        css_selector += this.end_container?.id
-            ? `, div#${this.end_container.id} button`
-            : "";
-        [].slice
-            .call(document.querySelectorAll(css_selector))
-            .forEach((item) => {
-                if (item != btn) {
-                    item.classList.remove("active");
-                }
-            });
-
-        // If there is not a range, only the start date exists
-        if (btn.classList.contains("start")) {
-            picker = this.start_picker;
-            close = this.end_picker;
-            date = this.start_date;
-            mode = "start";
-        } else {
-            picker = this.end_picker;
-            close = this.start_picker;
-            date = this.end_date;
-            mode = "end";
-        }
-
-        // If the button has the active state...
-        if (btn.classList.contains("active")) {
-            picker.style.display = "block";
-            // Closes the picker previously opened (if any)
-            if (close) {
-                close.style.display = "none";
-            }
-
-            document.addEventListener(click, this.onClickOutside);
-
-            let prefix = btn.classList.contains("date") ? "Date" : "Time";
-            if (
-                prefix == "Time" &&
-                this.round_to &&
-                !this.force_original_time_picker
-            ) {
-                prefix = "Alternative" + prefix;
-            }
-            let method = "show" + prefix + "Picker";
-            this[method](picker, date);
-
-            scrollPage(picker);
-        }
-
-        // ...otherwise
-        else {
-            // The picker was already open, so we close it
-            picker.style.display = "none";
-            document.removeEventListener(click, this.onClickOutside);
-        }
-    };
-
-    /**
-     * @desc
-     * This is a click handler triggered when the user clicks to select either a day or an hour.
-     * It passes an {@link module:js/picker-base.PickerBaseNS.UserSelection|UserSelection} object as
-     * parameter to {@link module:js/picker-base.PickerBase#selectDay|selectDay} or to
-     * {@link module:js/picker-base.PickerBase#selectHour|selectHour} methods, depending on the user
-     * clicks on a day button or on an hour button respectively.
-     *
-     * @param {Event} e
-     *
-     * @see {@link module:js/picker-base.PickerBase#selectDay|selectDay}
-     * @see {@link module:js/picker-base.PickerBase#selectHour|selectHour}
-     */
-    this.onSelectDayOrHour = (e) => {
-        const o = {};
-        const t = e.target;
-        o.text = t.textContent;
-        const if_hour = o.text.indexOf(":") != -1 ? true : false;
-
-        if (mode == "start") {
-            o.date = this.start_date;
-            o.container = this.start_container;
-            o.btn = !if_hour ? this.start_date_btn : this.start_time_btn;
-            o.picker = this.start_picker;
-        } else {
-            o.date = this.end_date;
-            o.container = this.end_container;
-            o.btn = !if_hour ? this.end_date_btn : this.end_time_btn;
-            o.picker = this.end_picker;
-        }
-
-        if (if_hour) {
-            let arr = o.text.split(":");
-            o.hour = arr[0];
-            o.minute = arr[1];
-            // [ o.hour, o.minute ] = o.text.split(':')
-        } else {
-            o.prev_month = t.classList.contains("prev-month");
-            o.next_month = t.classList.contains("next-month");
-        }
-
-        const substr = t.classList.contains("day")
-            ? "Day"
-            : t.classList.contains("month")
-            ? "Month"
-            : t.classList.contains("year")
-            ? "Year"
-            : "Hour";
-        if (substr === "Month") {
-            o.text = t.dataset.monthIndex;
-        } else if (substr === "Year") {
-            o.text = t.dataset.yearIndex;
-        }
-        const method = "select" + substr;
-        this[method](o);
-    };
-
-    /**
-     * @desc
-     * Displays date and/or time in their own buttons. According to `settings.date_output` property,
-     * it outputs the date in local time to the value attribute of `input.date_output`.
-     *
-     * @param {HTMLDivElement} div `div` element where to display the date/time
-     * @param {Date} date Date to be displayed
-     *
-     * @see {@link module:js/picker-base.PickerBase~getWeekDayNo|getWeekDayNo}
-     * @see {@link module:js/picker-base.PickerBase~date2ISOString|date2ISOString}
-     */
-    this.printDateAndTime = function (div, date) {
-        // Displays date
-        const date_coll = div.querySelectorAll("button.date > *");
-        const week_day_span = date_coll[0];
-        const month_day = date_coll[1];
-        const month_year_span = date_coll[2];
-        // const [ week_day_span, month_day, month_year_span ] = div.querySelectorAll( 'button.date > *' );
-
-        const week_day_number = getWeekDayNo(date);
-
-        week_day_span.textContent = "";
-        // week_day_span.textContent =
-        //     this.i18n[days_order[week_day_number] + "_"];
-        month_day.textContent = ("0" + date.getDate()).slice(-2);
-        month_year_span.innerHTML = `<span data-i18n="${
-            months_order[date.getMonth()]
-        }_">${
-            this.i18n[months_order[date.getMonth()] + "_"]
-        }</span><br>${date.getFullYear()}`;
-
-        // Displays time
-        const button_time = div.querySelector("button.time");
-        if (button_time) {
-            const time_coll = button_time.querySelectorAll("span");
-            const hours = time_coll[0];
-            const minutes = time_coll[1];
-            // const [ hours, minutes ] = button_time.querySelectorAll( 'span' );
-            // date.setHours(8);
-            // date.setMinutes(0);
-            hours.textContent = ("0" + date.getHours()).slice(-2);
-            minutes.textContent = `:${("0" + date.getMinutes()).slice(-2)}`;
-        }
-
-        // Outputs date and time according to this.date_output
-        let output_date;
-        const full_iso = date2ISOString(date);
-        switch (this.date_output) {
-            // YYYY-MM-DDTHH:mm:ss
-            case "full_ISO":
-                output_date = full_iso;
-                break;
-            // YYYY-MM-DD
-            case "short_ISO":
-                let arr = full_iso.split("T");
-                output_date = arr[0];
-                // [ output_date, ] = full_iso.split( 'T' );
-                break;
-            // Timestamp value without milliseconds
-            case "timestamp":
-            default:
-                output_date = date2UTCTimestamp(date);
-        }
-
-        div.querySelector("input.date_output").value = output_date;
-    };
-
-    /**
-     * @desc
-     * Rounds minutes to the next `round_to` value.
-     *
-     * @param {array} dates An array containing an arbitrary number of dates to be rounded
-     */
-    this.roundMinutes = function (dates) {
-        dates.forEach((date) => {
-            date.setSeconds(0, 0);
-
-            let sum_one_hour = false;
-            let m = date.getMinutes();
-            let h = date.getHours();
-
-            // Rounds m to the next round value
-            const round = this.round_to ? this.round_to : 30;
-            if (m % round != 0) {
-                for (let i = m; i <= m + round; i++) {
-                    if (i % round == 0) {
-                        m = i;
-                        break;
-                    }
-                }
-            }
-
-            if (m == 60) {
-                m = 0;
-                // If we round minutes to 0 we have to sum +1 hour
-                h = h + 1;
-                // If, after rounding, the midnight is reached, we have to sum +1 day
-                if (h == 24) {
-                    h = 0;
-                    date.setDate(date.getDate() + 1);
-                }
-            }
-
-            date.setHours(h, m);
-        });
-    };
-
-    /**
-     * @desc
-     * Selects the year clicked by the user and then closes the picker. It's used by
-     * {@link module:js/picker-base.PickerBase#onSelectDayOrHour|onSelectDayOrHour} method.
-     *
-     * @param {module:js/picker-base.PickerBaseNS.UserSelection} o Object with contextual info
-     *
-     * @see {@link module:js/picker-base.PickerBase#checkDateTimeConsistency|checkDateTimeConsistency}
-     * @see {@link module:js/picker-base.PickerBase#printDateAndTime|printDateAndTime}
-     * @see {@link module:js/picker-base.PickerBase#closePicker|closePicker}
-     */
-    this.selectYear = function (o) {
-        o.date.setFullYear(
-            parseInt(o.text),
-            o.date.getMonth(),
-            o.date.getDate()
-        );
-
-        this.checkDateTimeConsistency();
-
-        // Updates day classes after user selection
-        const coll = document.querySelectorAll("td.year.selectable");
-
-        for (let i = 0, n = coll.length; i < n; i++) {
-            let class_name = "year selectable";
-            if (parseInt(coll[i].dataset.yearIndex) === o.date.getFullYear()) {
-                class_name += " start-year active";
-            }
-            coll[i].className = class_name;
-        }
-
-        this.printDateAndTime(o.container, o.date);
-        this.showMonthPicker(o.picker, o.date);
-    };
-
-    /**
-     * @desc
-     * Selects the month clicked by the user and then closes the picker. It's used by
-     * {@link module:js/picker-base.PickerBase#onSelectDayOrHour|onSelectDayOrHour} method.
-     *
-     * @param {module:js/picker-base.PickerBaseNS.UserSelection} o Object with contextual info
-     *
-     * @see {@link module:js/picker-base.PickerBase#checkDateTimeConsistency|checkDateTimeConsistency}
-     * @see {@link module:js/picker-base.PickerBase#printDateAndTime|printDateAndTime}
-     * @see {@link module:js/picker-base.PickerBase#closePicker|closePicker}
-     */
-    this.selectMonth = function (o) {
-        o.date.setFullYear(
-            this.current_year.getFullYear(),
-            parseInt(o.text),
-            o.date.getDate()
-        );
-
-        this.checkDateTimeConsistency();
-
-        // Updates day classes after user selection
-        const coll = document.querySelectorAll("td.month.selectable");
-
-        for (let i = 0, n = coll.length; i < n; i++) {
-            let class_name = "month selectable";
-            if (parseInt(coll[i].dataset.monthIndex) === o.date.getMonth()) {
-                class_name += " start-month active";
-            }
-            coll[i].className = class_name;
-        }
-
-        this.printDateAndTime(o.container, o.date);
-        this.showDatePicker(o.picker, o.date);
-    };
-
-    /**
-     * @desc
-     * Selects the day clicked by the user and then closes the picker. It's used by
-     * {@link module:js/picker-base.PickerBase#onSelectDayOrHour|onSelectDayOrHour} method.
-     *
-     * @param {module:js/picker-base.PickerBaseNS.UserSelection} o Object with contextual info
-     *
-     * @see {@link module:js/picker-base.PickerBase#printDateAndTime|printDateAndTime}
-     * @see {@link module:js/picker-base.PickerBase#closePicker|closePicker}
-     */
-    this.selectDay = function (o) {
-        // Updates this.start_date or this.end_date after user selection
-        if (o.prev_month) {
-            o.date.setFullYear(
-                this.prev_month.getFullYear(),
-                this.prev_month.getMonth(),
-                o.text
-            );
-        } else if (o.next_month) {
-            o.date.setFullYear(
-                this.next_month.getFullYear(),
-                this.next_month.getMonth(),
-                o.text
-            );
-        } else {
-            o.date.setFullYear(
-                this.current_month.getFullYear(),
-                this.current_month.getMonth(),
-                o.text
-            );
-        }
-
-        this.checkDateTimeConsistency();
-
-        const _dates = this.get_Dates();
-
-        // Updates day classes after user selection
-        const coll = document.querySelectorAll("td.selectable");
-
-        for (let i = 0, n = coll.length; i < n; i++) {
-            let param,
-                class_name = "";
-            if (coll[i].classList.contains("prev-month")) {
-                param = this.prev_month;
-                class_name += "prev-month ";
-            } else if (coll[i].classList.contains("next-month")) {
-                param = this.next_month;
-                class_name += "next-month ";
-            } else {
-                param = this.current_month;
-            }
-
-            class_name += this.getDayClassName(
-                coll[i].textContent,
-                param,
-                _dates
-            );
-            coll[i].className = class_name;
-        }
-
-        this.printDateAndTime(o.container, o.date);
-        this.closePicker(o.picker, o.btn, 1);
-
-        if (o.btn.classList.contains("date")) {
-            const timeBtn = o.btn.parentElement.querySelector(".time");
-            this.openPicker(timeBtn, 1);
-        }
-    };
-
-    /**
-     * Selects the hour/minute pair clicked by the user and then closes the picker.
-     *
-     * @param {module:js/picker-base.PickerBaseNS.UserSelection} o Object with contextual info
-     *
-     * @see {@link module:js/picker-base.PickerBase#printDateAndTime|printDateAndTime}
-     * @see {@link module:js/picker-base.PickerBase#closePicker|closePicker}
-     */
-    this.selectHour = function (o) {
-        // Updates hour and minute with those selected by the user
-        o.date.setHours(o.hour, o.minute, 0, 0);
-
-        this.checkDateTimeConsistency();
-
-        // Updates the table after user selection
-        let coll = document.querySelectorAll("td.selectable");
-
-        for (let i = 0, n = coll.length; i < n; i++) {
-            coll[i].className = this.getHourClassName(
-                coll[i].textContent,
-                o.date
-            );
-        }
-
-        this.printDateAndTime(o.container, o.date);
-
-        this.closePicker(o.picker, o.btn, 1);
-    };
-
-    /**
-     * @desc
-     * Initializes the end date picker properties.
-     *
-     * @param {string} id id of the `div` element that will contain the button(s)
-     * @param {Date|string|null} end_date_setting End selected date from settings
-     *
-     * @see {@link module:js/picker-base.PickerBase~getDateBetween|getDateBetween}
-     * @see {@link module:js/picker-base.PickerBase~roundMinutes|roundMinutes}
-     */
-    this.setEndPickerProps = function (id, end_date_setting) {
-        const el = document.getElementById(id);
-        if (el == null || el.nodeName != "DIV") {
-            throw new Error(
-                `Does div#${id} exist? Please, check your HTML code`
-            );
-        }
-
-        // Default end selected date is one day more than start selected date
-        const end_date_default = new Date(
-            this.start_date.getTime() + this.min_range
-        );
-        let end_date = getDateBetween(
-            end_date_default,
-            end_date_setting,
-            el.querySelector("input.date_output")
-        );
-        // End selected date must be greater than start selected date
-        if (end_date < this.start_date) {
-            end_date = end_date_default;
-        }
-
-        this.roundMinutes([end_date]);
-
-        // End selected date can't be greater than last selectable date
-        if (end_date > this.last_date) {
-            this.last_date = end_date;
-        }
-
-        this.end_container = el;
-        this.end_date = end_date;
-    };
-
-    /**
-     * @desc
-     * Initializes the start date picker properties.
-     *
-     * @param {string} id id of the `div` element that will contain the button(s)
-     * @param {Date|string|null} start_date_setting Start selected date from settings
-     * @param {Date|string|null} first_date_setting First selectable date from settings
-     * @param {Date|string|null} last_date_setting Last selectable date from settings
-     * @param {number} first_day_no Day the week must start with. Similarly to the returned values of `Date.getDate` method, accepted range values are 0-6 where 0 means Sunday, 1 means Monday and so on
-     *
-     * @see {@link module:js/picker-base.PickerBase~getDateBetween|getDateBetween}
-     * @see {@link module:js/picker-base.PickerBase~roundMinutes|roundMinutes}
-     * @see {@link module:js/picker-base.PickerBase~setDaysOrder|setDaysOrder}
-     */
-    this.setStartPickerProps = function (
-        id,
-        start_date_setting,
-        first_date_setting,
-        last_date_setting,
-        first_day_no
-    ) {
-        const el = document.getElementById(id);
-        if (el == null || el.nodeName != "DIV") {
-            throw new Error(
-                `Does div#${id} exist? Please, check your HTML code`
-            );
-        }
-
-        // Default start selected date is one day more than current date
-        const start_date_default = new Date(Date.now() + ms_per_day);
-        let start_date = getDateBetween(
-            start_date_default,
-            start_date_setting,
-            el.querySelector("input.date_output")
-        );
-
-        // Default first selectable date is the current date
-        const first_date_default = new Date();
-        let first_date = getDateBetween(first_date_default, first_date_setting);
-        // Start selected date must be greater than first selectable date
-        if (start_date < first_date) {
-            first_date = start_date;
-        }
-
-        // Default last selectable date is one year more than start selected date
-        const last_date_default = new Date(
-            start_date.getTime() + ms_per_day * 365
-        );
-        let last_date = getDateBetween(last_date_default, last_date_setting);
-        // Last selectable date must be greater than start selected date
-        if (last_date < start_date) {
-            last_date = last_date_default;
-        }
-
-        if (this.round_to) {
-            if ([1, 5, 10, 15, 20, 30].indexOf(this.round_to) < 0) {
-                this.round_to = 1;
-            }
-        }
-        this.roundMinutes([start_date, first_date, last_date]);
-
-        setDaysOrder(first_day_no);
-
-        this.start_container = el;
-        this.start_date = start_date;
-        this.first_date = first_date;
-        this.last_date = last_date;
-    };
-
-    /**
-     * @desc
-     * Creates select elements for hours and minutes inside the picker
-     *
-     * @param {HTMLDivElement} picker The picker that contains the table
-     * @param {Date} day Current day
-     *
-     * @see {@link module:js/picker-base.PickerBase~getWeekDayNo|getWeekDayNo}
-     *
-     * @since 1.1.0
-     */
-    this.showAlternativeTimePicker = function (picker, day) {
-        let _curr_day = new Date(day);
-        let selected_hour;
-
-        let getSelectMinutesOptions = () => {
-            let select_content = "";
-            for (let m = 0; m <= 59; m++) {
-                if (m % this.round_to == 0) {
-                    _curr_day.setHours(selected_hour, m);
-                    if (
-                        _curr_day < this.first_date ||
-                        _curr_day > this.last_date
-                    ) {
-                        continue;
-                    }
-
-                    let current_minute = ("0" + m).slice(-2);
-                    // let selected = m == day.getMinutes() ? "selected" : "";
-                    let selected = m == day.getMinutes() ? "" : "";
-                    select_content += `<option value="${current_minute}" ${selected}>${current_minute}</option>`;
-                }
-            }
-
-            return select_content;
-        };
-
-        let select_hours = '<select class="select-hours">';
-        for (let h = 8; h < 22; h++) {
-            _curr_day.setHours(h);
-            if (_curr_day < this.first_date || _curr_day > this.last_date) {
-                continue;
-            }
-            console.log(day);
-
-            let current_hour = ("0" + h).slice(-2);
-            // let selected = h == day.getHours() ? "selected" : "";
-            let selected = h == day.getHours() ? "" : "";
-            if (selected) {
-                selected_hour = h;
-            }
-            select_hours += `<option value="${current_hour}" ${selected}>${current_hour}</option>`;
-        }
-        select_hours += "</select>";
-
-        let select_minutes = '<select class="select-minutes">';
-        select_minutes += getSelectMinutesOptions();
-        select_minutes += "</select>";
-
-        picker.innerHTML = `<table class="time">
+    let select_hours = '<select class="select-hours">';
+    for (let h = 8; h < 22; h++) {
+      _curr_day.setHours(h);
+      if (_curr_day < this.first_date || _curr_day > this.last_date) {
+        continue;
+      }
+      // console.log(day);
+
+      let current_hour = ("0" + h).slice(-2);
+      // let selected = h == day.getHours() ? "selected" : "";
+      let selected = h == day.getHours() ? "" : "";
+      if (selected) {
+        selected_hour = h;
+      }
+      select_hours += `<option value="${current_hour}" ${selected}>${current_hour}</option>`;
+    }
+    select_hours += "</select>";
+
+    let select_minutes = '<select class="select-minutes">';
+    select_minutes += getSelectMinutesOptions();
+    select_minutes += "</select>";
+
+    picker.innerHTML = `<table class="time">
       <tr>
         <th>
           ${this.i18n[days_order[getWeekDayNo(day)] + "_"]}
           ${day.getDate()}
           <span class="month" data-i18n="${
-              months_order[day.getMonth()] + "_"
+            months_order[day.getMonth()] + "_"
           }">${this.i18n[months_order[day.getMonth()] + "_"]}</span>
         </th>
       </tr>
@@ -1104,120 +1062,115 @@ export function PickerBase() {
       </tr>
     </table>`;
 
-        let container, btn;
-        if (mode == "start") {
-            container = this.start_container;
-            btn = this.start_time_btn;
-        } else {
-            container = this.end_container;
-            btn = this.end_time_btn;
-        }
-        const select_hours_el = container.querySelector("select.select-hours");
-        const select_minutes_el = container.querySelector(
-            "select.select-minutes"
-        );
-        const button_confirm = container.querySelector("button.confirm");
+    let container, btn;
+    if (mode == "start") {
+      container = this.start_container;
+      btn = this.start_time_btn;
+    } else {
+      container = this.end_container;
+      btn = this.end_time_btn;
+    }
+    const select_hours_el = container.querySelector("select.select-hours");
+    const select_minutes_el = container.querySelector("select.select-minutes");
+    const button_confirm = container.querySelector("button.confirm");
 
-        let onChangeHour = (e) => {
-            selected_hour =
-                select_hours_el.options[select_hours_el.selectedIndex].value;
-            let select_content = getSelectMinutesOptions();
-            select_minutes_el.innerHTML = select_content;
-        };
-
-        let onSetTime = (e) => {
-            e.preventDefault();
-
-            const current_hour =
-                select_hours_el.options[select_hours_el.selectedIndex].value;
-            const current_minute =
-                select_minutes_el.options[select_minutes_el.selectedIndex]
-                    .value;
-
-            day.setHours(current_hour, current_minute, 0, 0);
-
-            this.checkDateTimeConsistency();
-
-            this.printDateAndTime(container, day);
-            this.closePicker(picker, btn, 1);
-
-            button_confirm.disabled = true;
-        };
-
-        select_hours_el.onchange = onChangeHour;
-        button_confirm.onclick = onSetTime;
+    let onChangeHour = (e) => {
+      selected_hour =
+        select_hours_el.options[select_hours_el.selectedIndex].value;
+      let select_content = getSelectMinutesOptions();
+      select_minutes_el.innerHTML = select_content;
     };
 
-    /**
-     * @desc
-     * Return the total number of days in the current date month.
-     *
-     * @param {Date} date Current date
-     * @returns {Number} Number of total days of the current date month
-     */
-    this.getTotalDaysOfMonth = function (date) {
-        const year = date.getFullYear();
+    let onSetTime = (e) => {
+      e.preventDefault();
 
-        // February length
-        const feb =
-            (year % 100 != 0 && year % 4 == 0) || year % 400 == 0 ? 29 : 28;
+      const current_hour =
+        select_hours_el.options[select_hours_el.selectedIndex].value;
+      const current_minute =
+        select_minutes_el.options[select_minutes_el.selectedIndex].value;
 
-        return [
-            "31",
-            feb,
-            "31",
-            "30",
-            "31",
-            "30",
-            "31",
-            "31",
-            "30",
-            "31",
-            "30",
-            "31",
-        ][date.getMonth()];
+      day.setHours(current_hour, current_minute, 0, 0);
+
+      this.checkDateTimeConsistency();
+
+      this.printDateAndTime(container, day);
+      this.closePicker(picker, btn, 1);
+
+      button_confirm.disabled = true;
     };
 
-    /**
-     * @desc
-     * Creates the years range selection inside the picker
-     *
-     * @param {HTMLDivElement} picker The picker that contains the calendar
-     * @param {Date} date Current date
-     */
-    this.showYearsPicker = function (picker, date) {
-        const year = date.getFullYear();
-        let html = "",
-            current_year_range = new Date(
-                Math.floor(year / 10) * 10 - 2,
-                date.getMonth(),
-                date.getDate()
-            ),
-            first_year_range = new Date(current_year_range);
+    select_hours_el.onchange = onChangeHour;
+    button_confirm.onclick = onSetTime;
+  };
 
-        html += `<tr>`;
-        for (let i = 0; i < 14; i++) {
-            const active_class =
-                current_year_range.getFullYear() <
-                    this.first_date.getFullYear() ||
-                this.last_date.getFullYear() < current_year_range.getFullYear()
-                    ? "disabled"
-                    : current_year_range.getFullYear() === year
-                    ? "selectable start-year active"
-                    : "selectable";
-            html += `<td class="year ${active_class}" data-year-index="${current_year_range.getFullYear()}">${current_year_range.getFullYear()}</td>`;
-            if (i === 6) {
-                html += `</tr><tr>`;
-            }
-            current_year_range = new Date(
-                current_year_range.getFullYear() + 1,
-                current_year_range.getMonth(),
-                current_year_range.getDate()
-            );
-        }
-        html += `</tr>`;
+  /**
+   * @desc
+   * Return the total number of days in the current date month.
+   *
+   * @param {Date} date Current date
+   * @returns {Number} Number of total days of the current date month
+   */
+  this.getTotalDaysOfMonth = function (date) {
+    const year = date.getFullYear();
 
-        picker.innerHTML = `<table class="date">
+    // February length
+    const feb = (year % 100 != 0 && year % 4 == 0) || year % 400 == 0 ? 29 : 28;
+
+    return [
+      "31",
+      feb,
+      "31",
+      "30",
+      "31",
+      "30",
+      "31",
+      "31",
+      "30",
+      "31",
+      "30",
+      "31",
+    ][date.getMonth()];
+  };
+
+  /**
+   * @desc
+   * Creates the years range selection inside the picker
+   *
+   * @param {HTMLDivElement} picker The picker that contains the calendar
+   * @param {Date} date Current date
+   */
+  this.showYearsPicker = function (picker, date) {
+    const year = date.getFullYear();
+    let html = "",
+      current_year_range = new Date(
+        Math.floor(year / 10) * 10 - 2,
+        date.getMonth(),
+        date.getDate()
+      ),
+      first_year_range = new Date(current_year_range);
+
+    html += `<tr>`;
+    for (let i = 0; i < 14; i++) {
+      const active_class =
+        current_year_range.getFullYear() < this.first_date.getFullYear() ||
+        this.last_date.getFullYear() < current_year_range.getFullYear()
+          ? "disabled"
+          : current_year_range.getFullYear() === year
+          ? "selectable start-year active"
+          : "selectable";
+      html += `<td class="year ${active_class}" data-year-index="${current_year_range.getFullYear()}">${current_year_range.getFullYear()}</td>`;
+      if (i === 6) {
+        html += `</tr><tr>`;
+      }
+      current_year_range = new Date(
+        current_year_range.getFullYear() + 1,
+        current_year_range.getMonth(),
+        current_year_range.getDate()
+      );
+    }
+    html += `</tr>`;
+
+    picker.innerHTML = `<table class="date">
       <tr>
         <th><a href="javascript:void(0);" class="prev-year-range">&laquo;</a></th>
         <th colspan="5">
@@ -1230,95 +1183,87 @@ export function PickerBase() {
       ${html}
     </table>`;
 
-        // Previous year range button
-        const prev_year_range_btn = picker.querySelector(".prev-year-range");
-        if (first_year_range > this.first_date) {
-            prev_year_range_btn.addEventListener("click", () =>
-                this.showYearsPicker(
-                    picker,
-                    new Date(
-                        date.getFullYear() - 10,
-                        date.getMonth(),
-                        date.getDate()
-                    )
-                )
-            );
-        } else {
-            prev_year_range_btn.classList.add("disabled");
-        }
+    // Previous year range button
+    const prev_year_range_btn = picker.querySelector(".prev-year-range");
+    if (first_year_range > this.first_date) {
+      prev_year_range_btn.addEventListener("click", () =>
+        this.showYearsPicker(
+          picker,
+          new Date(date.getFullYear() - 10, date.getMonth(), date.getDate())
+        )
+      );
+    } else {
+      prev_year_range_btn.classList.add("disabled");
+    }
 
-        // Next year range button
-        const next_year_range_btn = picker.querySelector(".next-year-range");
-        if (this.last_date > current_year_range) {
-            next_year_range_btn.addEventListener("click", () =>
-                this.showYearsPicker(
-                    picker,
-                    new Date(
-                        date.getFullYear() + 10,
-                        date.getMonth(),
-                        date.getDate()
-                    )
-                )
-            );
-        } else {
-            next_year_range_btn.classList.add("disabled");
-        }
+    // Next year range button
+    const next_year_range_btn = picker.querySelector(".next-year-range");
+    if (this.last_date > current_year_range) {
+      next_year_range_btn.addEventListener("click", () =>
+        this.showYearsPicker(
+          picker,
+          new Date(date.getFullYear() + 10, date.getMonth(), date.getDate())
+        )
+      );
+    } else {
+      next_year_range_btn.classList.add("disabled");
+    }
 
-        this.addOnSelectEvent(picker);
+    this.addOnSelectEvent(picker);
 
-        // this.current_year = current_year;
-    };
+    // this.current_year = current_year;
+  };
 
-    /**
-     * @desc
-     * Creates the month selection inside the picker
-     *
-     * @param {HTMLDivElement} picker The picker that contains the calendar
-     * @param {Date} date Current date
-     */
-    this.showMonthPicker = function (picker, date) {
-        let html = "";
-        const month = date.getMonth(),
-            year = date.getFullYear(),
-            bottom_month = new Date(
-                this.first_date.getFullYear(),
-                this.first_date.getMonth(),
-                1,
-                0,
-                0,
-                0
-            ),
-            top_month = new Date(
-                this.last_date.getFullYear(),
-                this.last_date.getMonth(),
-                1,
-                0,
-                0,
-                0
-            ),
-            current_year = new Date(year, month, 1, 0, 0, 0),
-            prev_year = new Date(year - 1, bottom_month.getMonth(), 1, 0, 0, 0),
-            next_year = new Date(year + 1, top_month.getMonth(), 1, 0, 0, 0);
+  /**
+   * @desc
+   * Creates the month selection inside the picker
+   *
+   * @param {HTMLDivElement} picker The picker that contains the calendar
+   * @param {Date} date Current date
+   */
+  this.showMonthPicker = function (picker, date) {
+    let html = "";
+    const month = date.getMonth(),
+      year = date.getFullYear(),
+      bottom_month = new Date(
+        this.first_date.getFullYear(),
+        this.first_date.getMonth(),
+        1,
+        0,
+        0,
+        0
+      ),
+      top_month = new Date(
+        this.last_date.getFullYear(),
+        this.last_date.getMonth(),
+        1,
+        0,
+        0,
+        0
+      ),
+      current_year = new Date(year, month, 1, 0, 0, 0),
+      prev_year = new Date(year - 1, bottom_month.getMonth(), 1, 0, 0, 0),
+      next_year = new Date(year + 1, top_month.getMonth(), 1, 0, 0, 0);
 
-        html += `<tr>`;
-        for (let i = 0; i < months_order.length; i++) {
-            const current_month = new Date(year, i, 1, 0, 0, 0);
-            let active_class =
-                current_month < bottom_month || top_month < current_month
-                    ? "disabled"
-                    : i === month
-                    ? "selectable start-month active"
-                    : "selectable";
-            html += `<td class="month ${active_class}" data-month-index="${i}" data-i18n="${
-                months_order[i]
-            }">${this.i18n[months_order[i]]}</td>`;
-            if (i === 5) {
-                html += `</tr><tr>`;
-            }
-        }
-        html += `</tr> `;
+    html += `<tr>`;
+    for (let i = 0; i < months_order.length; i++) {
+      const current_month = new Date(year, i, 1, 0, 0, 0);
+      let active_class =
+        current_month < bottom_month || top_month < current_month
+          ? "disabled"
+          : i === month
+          ? "selectable start-month active"
+          : "selectable";
+      html += `<td class="month ${active_class}" data-month-index="${i}" data-i18n="${
+        months_order[i]
+      }">${this.i18n[months_order[i]]}</td>`;
+      if (i === 5) {
+        html += `</tr><tr>`;
+      }
+    }
+    html += `</tr> `;
 
-        picker.innerHTML = `<table class="date">
+    picker.innerHTML = `<table class="date">
       <tr>
         <th><a href="javascript:void(0);" class="prev-year">&laquo;</a></th>
         <th colspan="4">
@@ -1329,290 +1274,287 @@ export function PickerBase() {
       ${html}
     </table>`;
 
-        // Previous month button
-        const prev_year_btn = picker.querySelector(".prev-year");
-        if (prev_year >= bottom_month) {
-            prev_year_btn.addEventListener("click", () =>
-                this.showMonthPicker(picker, prev_year)
-            );
-        } else {
-            prev_year_btn.classList.add("disabled");
-        }
+    // Previous month button
+    const prev_year_btn = picker.querySelector(".prev-year");
+    if (prev_year >= bottom_month) {
+      prev_year_btn.addEventListener("click", () =>
+        this.showMonthPicker(picker, prev_year)
+      );
+    } else {
+      prev_year_btn.classList.add("disabled");
+    }
 
-        // Next month button
-        const next_year_btn = picker.querySelector(".next-year");
-        if (top_month >= next_year) {
-            next_year_btn.addEventListener("click", () =>
-                this.showMonthPicker(picker, next_year)
-            );
-        } else {
-            next_year_btn.classList.add("disabled");
-        }
+    // Next month button
+    const next_year_btn = picker.querySelector(".next-year");
+    if (top_month >= next_year) {
+      next_year_btn.addEventListener("click", () =>
+        this.showMonthPicker(picker, next_year)
+      );
+    } else {
+      next_year_btn.classList.add("disabled");
+    }
 
-        // Year expanded selector
-        const year_btn = picker.querySelector("span.year");
-        year_btn.addEventListener("click", () =>
-            this.showYearsPicker(picker, current_year)
-        );
+    // Year expanded selector
+    const year_btn = picker.querySelector("span.year");
+    year_btn.addEventListener("click", () =>
+      this.showYearsPicker(picker, current_year)
+    );
 
-        this.addOnSelectEvent(picker);
+    this.addOnSelectEvent(picker);
 
-        this.current_year = current_year;
-    };
+    this.current_year = current_year;
+  };
 
-    /**
-     * @desc
-     * Creates the calendar of the current month inside the picker.
-     *
-     * @param {HTMLDivElement} picker The picker that contains the calendar
-     * @param {Date} date Current date
-     *
-     * @see {@link module:js/picker-base.PickerBase~getWeekDayNo|getWeekDayNo}
-     * @see {@link module:js/picker-base.PickerBase#getDayClassName|getDayClassName}
-     * @see {@link module:js/picker-base.PickerBase#addOnSelectEvent|addOnSelectEvent}
-     */
-    this.showDatePicker = function (picker, date) {
-        let class_name,
-            html = "";
-        const month = date.getMonth(),
-            year = date.getFullYear(),
-            day = date.getDate();
+  /**
+   * @desc
+   * Creates the calendar of the current month inside the picker.
+   *
+   * @param {HTMLDivElement} picker The picker that contains the calendar
+   * @param {Date} date Current date
+   *
+   * @see {@link module:js/picker-base.PickerBase~getWeekDayNo|getWeekDayNo}
+   * @see {@link module:js/picker-base.PickerBase#getDayClassName|getDayClassName}
+   * @see {@link module:js/picker-base.PickerBase#addOnSelectEvent|addOnSelectEvent}
+   */
+  this.showDatePicker = function (picker, date) {
+    let class_name,
+      html = "";
+    const month = date.getMonth(),
+      year = date.getFullYear(),
+      day = date.getDate();
 
-        if (
-            year === this.first_date.getFullYear() &&
-            month === this.first_date.getMonth() &&
-            day < this.first_date.getDate()
-        ) {
-            date.setFullYear(year, month, this.first_date.getDate());
-            this.printDateAndTime(
-                mode === "start" ? this.start_container : this.end_container,
-                date
-            );
-        } else if (
-            year === this.last_date.getFullYear() &&
-            month === this.last_date.getMonth() &&
-            day > this.last_date.getDate()
-        ) {
-            date.setFullYear(year, month, this.last_date.getDate());
-            this.printDateAndTime(
-                mode === "start" ? this.start_container : this.end_container,
-                date
-            );
-        }
+    if (
+      year === this.first_date.getFullYear() &&
+      month === this.first_date.getMonth() &&
+      day < this.first_date.getDate()
+    ) {
+      date.setFullYear(year, month, this.first_date.getDate());
+      this.printDateAndTime(
+        mode === "start" ? this.start_container : this.end_container,
+        date
+      );
+    } else if (
+      year === this.last_date.getFullYear() &&
+      month === this.last_date.getMonth() &&
+      day > this.last_date.getDate()
+    ) {
+      date.setFullYear(year, month, this.last_date.getDate());
+      this.printDateAndTime(
+        mode === "start" ? this.start_container : this.end_container,
+        date
+      );
+    }
 
-        // February length
-        const feb =
-            (year % 100 != 0 && year % 4 == 0) || year % 400 == 0 ? 29 : 28;
-        const total_days = [
-            "31",
-            feb,
-            "31",
-            "30",
-            "31",
-            "30",
-            "31",
-            "31",
-            "30",
-            "31",
-            "30",
-            "31",
-        ];
+    // February length
+    const feb = (year % 100 != 0 && year % 4 == 0) || year % 400 == 0 ? 29 : 28;
+    const total_days = [
+      "31",
+      feb,
+      "31",
+      "30",
+      "31",
+      "30",
+      "31",
+      "31",
+      "30",
+      "31",
+      "30",
+      "31",
+    ];
 
-        const current_month = new Date(year, month, 1);
-        // First day of current month as number
-        let week_day = getWeekDayNo(current_month);
-        const prev_month = new Date(year, month - 1, 1);
-        const next_month = new Date(year, month + 1, 1);
+    const current_month = new Date(year, month, 1);
+    // First day of current month as number
+    let week_day = getWeekDayNo(current_month);
+    const prev_month = new Date(year, month - 1, 1);
+    const next_month = new Date(year, month + 1, 1);
 
-        const _dates = this.get_Dates();
+    const _dates = this.get_Dates();
 
-        // Displays the last days of the previous month
-        let i = 0;
-        let j = week_day;
-        const prev_month_total_days = total_days[prev_month.getMonth()];
-        while (j > 0) {
-            i = prev_month_total_days - (j - 1);
-            class_name = this.getDayClassName(i, prev_month, _dates);
-            html += `<td class="prev-month ${class_name}" > ${i}</td>`;
-            j--;
-        }
+    // Displays the last days of the previous month
+    let i = 0;
+    let j = week_day;
+    const prev_month_total_days = total_days[prev_month.getMonth()];
+    while (j > 0) {
+      i = prev_month_total_days - (j - 1);
+      class_name = this.getDayClassName(i, prev_month, _dates);
+      html += `<td class="prev-month ${class_name}" > ${i}</td>`;
+      j--;
+    }
 
-        // Displays the days of the current month
-        i = 1;
-        while (i <= total_days[month]) {
-            // Starts a new row
-            if (week_day > 6) {
-                week_day = 0;
-                html += "</tr><tr>";
-            }
+    // Displays the days of the current month
+    i = 1;
+    while (i <= total_days[month]) {
+      // Starts a new row
+      if (week_day > 6) {
+        week_day = 0;
+        html += "</tr><tr>";
+      }
 
-            class_name = this.getDayClassName(i, current_month, _dates);
-            html += `<td class="${class_name}" > ${i}</td>`;
+      class_name = this.getDayClassName(i, current_month, _dates);
+      html += `<td class="${class_name}" > ${i}</td>`;
 
-            week_day++;
-            i++;
-        }
+      week_day++;
+      i++;
+    }
 
-        // Displays the first days of the next month
-        for (i = 1; week_day <= 6; week_day++, i++) {
-            class_name = this.getDayClassName(i, next_month, _dates);
-            html += `<td class="next-month ${class_name}" > ${i}</td>`;
-        }
+    // Displays the first days of the next month
+    for (i = 1; week_day <= 6; week_day++, i++) {
+      class_name = this.getDayClassName(i, next_month, _dates);
+      html += `<td class="next-month ${class_name}" > ${i}</td>`;
+    }
 
-        picker.innerHTML = `<table class="date">
+    picker.innerHTML = `<table class="date">
       <tr>
         <th><a href="javascript:void(0);" class="prev-month">&laquo;</a></th>
         <th colspan="5">
           <span class="month" data-i18n="${months_order[month] + "_"}">${
-            this.i18n[months_order[month] + "_"]
-        }</span>
+      this.i18n[months_order[month] + "_"]
+    }</span>
           <span class="year">${year}</span>
         </th>
         <th><a href="javascript:void(0);" class="next-month">&raquo;</a></th>
       </tr>
       <tr>
         <td class="day-label" data-i18n="${days_order[0]}">${
-            this.i18n[days_order[0]]
-        }</td>
+      this.i18n[days_order[0]]
+    }</td>
         <td class="day-label" data-i18n="${days_order[1]}">${
-            this.i18n[days_order[1]]
-        }</td>
+      this.i18n[days_order[1]]
+    }</td>
         <td class="day-label" data-i18n="${days_order[2]}">${
-            this.i18n[days_order[2]]
-        }</td>
+      this.i18n[days_order[2]]
+    }</td>
         <td class="day-label" data-i18n="${days_order[3]}">${
-            this.i18n[days_order[3]]
-        }</td>
+      this.i18n[days_order[3]]
+    }</td>
         <td class="day-label" data-i18n="${days_order[4]}">${
-            this.i18n[days_order[4]]
-        }</td>
+      this.i18n[days_order[4]]
+    }</td>
         <td class="day-label" data-i18n="${days_order[5]}">${
-            this.i18n[days_order[5]]
-        }</td>
+      this.i18n[days_order[5]]
+    }</td>
         <td class="day-label" data-i18n="${days_order[6]}">${
-            this.i18n[days_order[6]]
-        }</td>
+      this.i18n[days_order[6]]
+    }</td>
       </tr>
       <tr>
         ${html}
       </tr>
     </table>`;
 
-        // Previous month button
-        prev_month.setDate(prev_month_total_days);
-        const prev_month_btn = picker.querySelector(".prev-month");
-        if (prev_month > this.first_date) {
-            prev_month_btn.addEventListener("click", () =>
-                this.showDatePicker(picker, prev_month)
-            );
-        } else {
-            prev_month_btn.classList.add("disabled");
-        }
+    // Previous month button
+    prev_month.setDate(prev_month_total_days);
+    const prev_month_btn = picker.querySelector(".prev-month");
+    if (prev_month > this.first_date) {
+      prev_month_btn.addEventListener("click", () =>
+        this.showDatePicker(picker, prev_month)
+      );
+    } else {
+      prev_month_btn.classList.add("disabled");
+    }
 
-        // Next month button
-        const next_month_btn = picker.querySelector(".next-month");
-        if (this.last_date > next_month) {
-            next_month_btn.addEventListener("click", () =>
-                this.showDatePicker(picker, next_month)
-            );
-        } else {
-            next_month_btn.classList.add("disabled");
-        }
+    // Next month button
+    const next_month_btn = picker.querySelector(".next-month");
+    if (this.last_date > next_month) {
+      next_month_btn.addEventListener("click", () =>
+        this.showDatePicker(picker, next_month)
+      );
+    } else {
+      next_month_btn.classList.add("disabled");
+    }
 
-        // Month expanded selector
-        const month_btn = picker.querySelector("span.month");
-        month_btn.addEventListener("click", () =>
-            this.showMonthPicker(picker, date)
+    // Month expanded selector
+    const month_btn = picker.querySelector("span.month");
+    month_btn.addEventListener("click", () =>
+      this.showMonthPicker(picker, date)
+    );
+
+    // Year expanded selector
+    const year_btn = picker.querySelector("span.year");
+    year_btn.addEventListener("click", () =>
+      this.showYearsPicker(picker, date)
+    );
+
+    this.addOnSelectEvent(picker);
+
+    this.current_month = current_month;
+    this.prev_month = prev_month;
+    this.next_month = next_month;
+  };
+
+  /**
+   * @desc
+   * Create a collection with available hours calculated taking into account the round_to value
+   *
+   * @returns {Array} a collection of the available hours taking into account the round_to value
+   */
+  this.getHours = function () {
+    if (!this.round_to) {
+      return [
+        "00:00",
+        "00:30",
+        "01:00",
+        "01:30",
+        "02:00",
+        "02:30",
+        "03:00",
+        "03:30",
+        "04:00",
+        "04:30",
+        "05:00",
+        "05:30",
+        "06:00",
+        "06:30",
+        "07:00",
+        "07:30",
+        "08:00",
+        "08:30",
+        "09:00",
+        "09:30",
+        "10:00",
+        "10:30",
+        "11:00",
+        "11:30",
+        "12:00",
+        "12:30",
+        "13:00",
+        "13:30",
+        "14:00",
+        "14:30",
+        "15:00",
+        "15:30",
+        "16:00",
+        "16:30",
+        "17:00",
+        "17:30",
+        "18:00",
+        "18:30",
+        "19:00",
+        "19:30",
+        "20:00",
+        "20:30",
+        "21:00",
+        "21:30",
+        "22:00",
+        "22:30",
+        "23:00",
+        "23:30",
+      ];
+    }
+    const hours = [],
+      gap = Math.round(60 / parseInt(this.round_to));
+    for (let h = 8; h < 22; h++) {
+      for (let m = 0; m < gap; m++) {
+        let minute = m * parseInt(this.round_to);
+        hours.push(
+          `${h < 10 ? "0" + h : h}:${minute < 10 ? "0" + minute : minute}`
         );
+      }
+    }
+    return hours;
+  };
 
-        // Year expanded selector
-        const year_btn = picker.querySelector("span.year");
-        year_btn.addEventListener("click", () =>
-            this.showYearsPicker(picker, date)
-        );
-
-        this.addOnSelectEvent(picker);
-
-        this.current_month = current_month;
-        this.prev_month = prev_month;
-        this.next_month = next_month;
-    };
-
-    /**
-     * @desc
-     * Create a collection with available hours calculated taking into account the round_to value
-     *
-     * @returns {Array} a collection of the available hours taking into account the round_to value
-     */
-    this.getHours = function () {
-        if (!this.round_to) {
-            return [
-                "00:00",
-                "00:30",
-                "01:00",
-                "01:30",
-                "02:00",
-                "02:30",
-                "03:00",
-                "03:30",
-                "04:00",
-                "04:30",
-                "05:00",
-                "05:30",
-                "06:00",
-                "06:30",
-                "07:00",
-                "07:30",
-                "08:00",
-                "08:30",
-                "09:00",
-                "09:30",
-                "10:00",
-                "10:30",
-                "11:00",
-                "11:30",
-                "12:00",
-                "12:30",
-                "13:00",
-                "13:30",
-                "14:00",
-                "14:30",
-                "15:00",
-                "15:30",
-                "16:00",
-                "16:30",
-                "17:00",
-                "17:30",
-                "18:00",
-                "18:30",
-                "19:00",
-                "19:30",
-                "20:00",
-                "20:30",
-                "21:00",
-                "21:30",
-                "22:00",
-                "22:30",
-                "23:00",
-                "23:30",
-            ];
-        }
-        const hours = [],
-            gap = Math.round(60 / parseInt(this.round_to));
-        for (let h = 8; h < 22; h++) {
-            for (let m = 0; m < gap; m++) {
-                let minute = m * parseInt(this.round_to);
-                hours.push(
-                    `${h < 10 ? "0" + h : h}:${
-                        minute < 10 ? "0" + minute : minute
-                    }`
-                );
-            }
-        }
-        return hours;
-    };
-
-    /**
+  /**
    * @desc
    * Creates the table of hours inside the picker
    *
@@ -1624,223 +1566,217 @@ export function PickerBase() {
    * @see {@link module:js/picker-base.PickerBase#getHourClassName|getHourClassName}
    * @see {@link module:js/picker-base.PickerBase#addOnSelectEvent|addOnSelectEvent}
    */
-    this.showTimePicker = function (picker, day) {
-        const hours = this.getHours(),
-            cells_by_row = 6;
-        let i = 0,
-            html = "",
-            class_name;
+  this.showTimePicker = function (picker, day) {
+    const hours = this.getHours(),
+      cells_by_row = 6;
+    let i = 0,
+      html = "",
+      class_name;
 
-        for (
-            let row = 0;
-            row < Math.round(hours.length / cells_by_row);
-            row++
-        ) {
-            html += "<tr>";
-            for (
-                let cell = row * cells_by_row;
-                cell < (row + 1) * cells_by_row;
-                cell++
-            ) {
-                if (hours[cell]) {
-                    class_name = "";
-                    class_name = this.getHourClassName(hours[cell], day);
+    for (let row = 0; row < Math.round(hours.length / cells_by_row); row++) {
+      html += "<tr>";
+      for (
+        let cell = row * cells_by_row;
+        cell < (row + 1) * cells_by_row;
+        cell++
+      ) {
+        if (hours[cell]) {
+          class_name = "";
+          class_name = this.getHourClassName(hours[cell], day);
 
-                    html += `<td class="${class_name}"> ${hours[cell]}</td>`;
-                } else {
-                    html += `<td class="hour white-background disabled"></td>`;
-                }
-            }
-            html += "</tr>";
+          html += `<td class="${class_name}"> ${hours[cell]}</td>`;
+        } else {
+          html += `<td class="hour white-background disabled"></td>`;
         }
-        // console.log({ picker });
-        picker.innerHTML = `<table class="time">
+      }
+      html += "</tr>";
+    }
+    // console.log({ picker });
+    picker.innerHTML = `<table class="time">
           <tr>
             <th colspan="${cells_by_row}">
               ${this.i18n[days_order[getWeekDayNo(day)] + "_"]}
               ${day.getDate()}
               <span class="month" data-i18n="${
-                  months_order[day.getMonth()] + "_"
+                months_order[day.getMonth()] + "_"
               }">${this.i18n[months_order[day.getMonth()] + "_"]}</span>
             </th>
           </tr>
       ${html}
     </table>`;
 
-        this.addOnSelectEvent(picker);
-    };
+    this.addOnSelectEvent(picker);
+  };
 
-    /**
-     * Returns a ISO string from a date passed as parameter.
-     * It's used by {@link module:js/picker-base.PickerBase#printDateAndTime|printDateAndTime}.
-     *
-     * @param {Date} d
-     */
-    function date2ISOString(d) {
-        const YYYY = d.getFullYear();
-        const MO = ("0" + (d.getMonth() + 1)).slice(-2);
-        const DD = ("0" + d.getDate()).slice(-2);
-        const HH = ("0" + d.getHours()).slice(-2);
-        const MI = ("0" + d.getMinutes()).slice(-2);
-        return `${YYYY}-${MO}-${DD}T${HH}:${MI}:00`;
+  /**
+   * Returns a ISO string from a date passed as parameter.
+   * It's used by {@link module:js/picker-base.PickerBase#printDateAndTime|printDateAndTime}.
+   *
+   * @param {Date} d
+   */
+  function date2ISOString(d) {
+    const YYYY = d.getFullYear();
+    const MO = ("0" + (d.getMonth() + 1)).slice(-2);
+    const DD = ("0" + d.getDate()).slice(-2);
+    const HH = ("0" + d.getHours()).slice(-2);
+    const MI = ("0" + d.getMinutes()).slice(-2);
+    return `${YYYY}-${MO}-${DD}T${HH}:${MI}:00`;
+  }
+
+  /**
+   * Returns a UTC timestamp from a local date passed as parameter.
+   * It's used by {@link module:js/picker-base.PickerBase#printDateAndTime|printDateAndTime}.
+   *
+   * @param {Date} d
+   *
+   * @see {@link https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/UTC|Date.UTC}
+   */
+  function date2UTCTimestamp(d) {
+    const utc_timestamp = Date.UTC(
+      d.getFullYear(),
+      d.getMonth(),
+      d.getDate(),
+      d.getHours(),
+      d.getMinutes(),
+      0,
+      0
+    );
+    return Math.floor(utc_timestamp / 1000);
+  }
+
+  /**
+   * @desc
+   * Returns a date depending on these precedence criteria:
+   * - the date provided in a hidden input field takes priority over other dates;
+   * - then follows the date provided by the settings object;
+   * - default date provided by the {@link module:js/picker-base.PickerBase#setStartPickerProps|setStartPickerProps} method comes last.
+   *
+   * @param {Date} date_default Default date
+   * @param {Date|string} date_param The date provided by the settings object
+   * @param {HTMLInputElement|null} [input=null] A hidden input field with ISO date string in its value attribute
+   * @return {Date}
+   *
+   * @see {@link module:js/picker-base.PickerBase~ISOString2Date|ISOString2Date}
+   */
+  function getDateBetween(date_default, date_param, input = null) {
+    let date;
+
+    const prev_date = input?.value;
+    if (prev_date) {
+      date = ISOString2Date(prev_date);
+      if (date) return date;
     }
 
-    /**
-     * Returns a UTC timestamp from a local date passed as parameter.
-     * It's used by {@link module:js/picker-base.PickerBase#printDateAndTime|printDateAndTime}.
-     *
-     * @param {Date} d
-     *
-     * @see {@link https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/UTC|Date.UTC}
-     */
-    function date2UTCTimestamp(d) {
-        const utc_timestamp = Date.UTC(
-            d.getFullYear(),
-            d.getMonth(),
-            d.getDate(),
-            d.getHours(),
-            d.getMinutes(),
-            0,
-            0
-        );
-        return Math.floor(utc_timestamp / 1000);
+    if (date_param) {
+      if (date_param instanceof Date) {
+        return date_param;
+      }
+
+      if (typeof date_param == "string") {
+        date = ISOString2Date(date_param);
+        if (date) return date;
+      }
     }
 
-    /**
-     * @desc
-     * Returns a date depending on these precedence criteria:
-     * - the date provided in a hidden input field takes priority over other dates;
-     * - then follows the date provided by the settings object;
-     * - default date provided by the {@link module:js/picker-base.PickerBase#setStartPickerProps|setStartPickerProps} method comes last.
-     *
-     * @param {Date} date_default Default date
-     * @param {Date|string} date_param The date provided by the settings object
-     * @param {HTMLInputElement|null} [input=null] A hidden input field with ISO date string in its value attribute
-     * @return {Date}
-     *
-     * @see {@link module:js/picker-base.PickerBase~ISOString2Date|ISOString2Date}
-     */
-    function getDateBetween(date_default, date_param, input = null) {
-        let date;
+    return date_default;
+  }
 
-        const prev_date = input?.value;
-        if (prev_date) {
-            date = ISOString2Date(prev_date);
-            if (date) return date;
-        }
+  /**
+   * @desc
+   * Returns the day of the week as number accordingly to `user_days_order` (if any) or `Date.prototype.getDay` method.
+   *
+   * @param {Date} date Date we get the day of the week from
+   * @return {number} The day of the week as number
+   */
+  function getWeekDayNo(date) {
+    let week_day = date.getDay();
 
-        if (date_param) {
-            if (date_param instanceof Date) {
-                return date_param;
-            }
-
-            if (typeof date_param == "string") {
-                date = ISOString2Date(date_param);
-                if (date) return date;
-            }
-        }
-
-        return date_default;
+    if (user_days_order) {
+      week_day = user_days_order.indexOf(default_days_order[week_day]);
     }
 
-    /**
-     * @desc
-     * Returns the day of the week as number accordingly to `user_days_order` (if any) or `Date.prototype.getDay` method.
-     *
-     * @param {Date} date Date we get the day of the week from
-     * @return {number} The day of the week as number
-     */
-    function getWeekDayNo(date) {
-        let week_day = date.getDay();
+    return week_day;
+  }
 
-        if (user_days_order) {
-            week_day = user_days_order.indexOf(default_days_order[week_day]);
-        }
+  /**
+   * @desc
+   * Tries to convert a date string in ISO format `iso_date` in a valid Date object in local time.
+   * Accepted values are 'HHHH-MM-DD' and 'HHHH-MM-DDTHH:mm:ss''.
+   *
+   * @param {string} iso_date Date string in ISO format
+   * @return {Date|null} `Date` if `iso_date` had a right pattern and was a valid date, `null` otherwise
+   *
+   * @see {@link https://css-tricks.com/everything-you-need-to-know-about-date-in-javascript/|Everything you need to know about date in JavaScript}
+   */
+  function ISOString2Date(iso_date) {
+    let date = null;
+    const arr = iso_date.match(
+      /^(\d{4})-(\d{2})-(\d{2})(T(\d{2}):(\d{2}):(\d{2}))?$/
+    );
 
-        return week_day;
+    // If `iso_date` has the right pattern and it's a valid date (otherwise new Date returns NaN)
+    if (arr && +new Date(arr[0])) {
+      const year = arr[1];
+      const month = arr[2] - 1;
+      const day = arr[3];
+      if (!arr[4]) {
+        date = new Date(year, month, day);
+      } else {
+        const hours = arr[5];
+        const minutes = arr[6];
+        const seconds = arr[7];
+        date = new Date(year, month, day, hours, minutes, seconds);
+      }
     }
 
-    /**
-     * @desc
-     * Tries to convert a date string in ISO format `iso_date` in a valid Date object in local time.
-     * Accepted values are 'HHHH-MM-DD' and 'HHHH-MM-DDTHH:mm:ss''.
-     *
-     * @param {string} iso_date Date string in ISO format
-     * @return {Date|null} `Date` if `iso_date` had a right pattern and was a valid date, `null` otherwise
-     *
-     * @see {@link https://css-tricks.com/everything-you-need-to-know-about-date-in-javascript/|Everything you need to know about date in JavaScript}
-     */
-    function ISOString2Date(iso_date) {
-        let date = null;
-        const arr = iso_date.match(
-            /^(\d{4})-(\d{2})-(\d{2})(T(\d{2}):(\d{2}):(\d{2}))?$/
-        );
+    return date ? date : null;
+  }
 
-        // If `iso_date` has the right pattern and it's a valid date (otherwise new Date returns NaN)
-        if (arr && +new Date(arr[0])) {
-            const year = arr[1];
-            const month = arr[2] - 1;
-            const day = arr[3];
-            if (!arr[4]) {
-                date = new Date(year, month, day);
-            } else {
-                const hours = arr[5];
-                const minutes = arr[6];
-                const seconds = arr[7];
-                date = new Date(year, month, day, hours, minutes, seconds);
-            }
-        }
+  /**
+   * Scrolls the page if the picker exceeds the viewport height.
+   * It's used by {@link module:js/picker-base.PickerBase#onOpenPicker|onOpenPicker}.
+   *
+   * @param {HTMLDivElement} picker The open picker
+   */
+  function scrollPage(picker) {
+    const rect = picker.getBoundingClientRect();
+    const diff =
+      rect.top + picker.offsetHeight - document.documentElement.clientHeight;
 
-        return date ? date : null;
+    if (diff > 0) {
+      // Checks if scroll behavior is supported
+      if ("scrollBehavior" in document.documentElement.style) {
+        window.scrollBy({
+          top: diff,
+          left: 0,
+          behavior: "smooth",
+        });
+      } else {
+        window.scrollBy(0, diff);
+      }
+    }
+  }
+
+  /**
+   * Sets the `days_order` variable depending on `first_day_no` parameter.
+   * It's used by {@link module:js/picker-base.PickerBase#setStartPickerProps|setStartPickerProps}.
+   *
+   * @param {number} first_day_no The first day of week number from settings object
+   */
+  function setDaysOrder(first_day_no) {
+    first_day_no = +first_day_no;
+    if (first_day_no > 6) {
+      first_day_no = 6;
     }
 
-    /**
-     * Scrolls the page if the picker exceeds the viewport height.
-     * It's used by {@link module:js/picker-base.PickerBase#onOpenPicker|onOpenPicker}.
-     *
-     * @param {HTMLDivElement} picker The open picker
-     */
-    function scrollPage(picker) {
-        const rect = picker.getBoundingClientRect();
-        const diff =
-            rect.top +
-            picker.offsetHeight -
-            document.documentElement.clientHeight;
-
-        if (diff > 0) {
-            // Checks if scroll behavior is supported
-            if ("scrollBehavior" in document.documentElement.style) {
-                window.scrollBy({
-                    top: diff,
-                    left: 0,
-                    behavior: "smooth",
-                });
-            } else {
-                window.scrollBy(0, diff);
-            }
-        }
+    if (first_day_no > 0) {
+      const array2 = default_days_order.slice(0, first_day_no);
+      const array1 = default_days_order.slice(
+        first_day_no,
+        default_days_order.length
+      );
+      user_days_order = array1.concat(array2);
     }
-
-    /**
-     * Sets the `days_order` variable depending on `first_day_no` parameter.
-     * It's used by {@link module:js/picker-base.PickerBase#setStartPickerProps|setStartPickerProps}.
-     *
-     * @param {number} first_day_no The first day of week number from settings object
-     */
-    function setDaysOrder(first_day_no) {
-        first_day_no = +first_day_no;
-        if (first_day_no > 6) {
-            first_day_no = 6;
-        }
-
-        if (first_day_no > 0) {
-            const array2 = default_days_order.slice(0, first_day_no);
-            const array1 = default_days_order.slice(
-                first_day_no,
-                default_days_order.length
-            );
-            user_days_order = array1.concat(array2);
-        }
-        days_order = user_days_order ? user_days_order : default_days_order;
-    }
+    days_order = user_days_order ? user_days_order : default_days_order;
+  }
 }

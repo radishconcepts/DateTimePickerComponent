@@ -15,13 +15,23 @@
   "main": "dist/js/date-time-picker-component.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/marcellosurdi/DateTimePickerComponent.git"
+    "url": "https://github.com/radishconcepts/DateTimePickerComponent.git"
   },
   "bugs": {
-    "url": "https://github.com/marcellosurdi/DateTimePickerComponent/issues"
+    "url": "https://github.com/radishconcepts/DateTimePickerComponent/issues"
   },
-  "homepage": "https://github.com/marcellosurdi/DateTimePickerComponent#readme",
-  "author": "Marcello Surdi <marcello.surdi@gmail.com> (https://www.marcellosurdi.name)",
+  "homepage": "https://github.com/radishconcepts/DateTimePickerComponent#readme",
+  "author": {
+    "name": "Marcello Surdi",
+    "email": "marcello.surdi@gmail.com",
+    "url": "https://www.marcellosurdi.name"
+  },
+  "contributors": [
+    {
+      "name": "Wiljon Bolten",
+      "email": "wiljon@radishconcepts.com"
+    }
+  ],
   "license": "MIT",
   "scripts": {
     "dev": "webpack serve --config config/webpack.dev.js --open chrome",
